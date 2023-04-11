@@ -2,13 +2,14 @@ import {
   ServerCallLocator,
   StartRecordingOptions,
   RecordingChannel,
-  CallRecording
+  CallRecording,
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
 import * as fs from "fs";
 import Root from "../../Root";
 import { Mapper, FileFormat, FileDownloadType } from "../../FileFormat";
 import { BlobDownloadResponseModel } from "@azure/storage-blob";
+import { ParsedQs } from 'qs';
 
 var cfg = require("../../config");
 
@@ -20,7 +21,7 @@ const { EventGridDeserializer } = require("@azure/eventgrid");
 const { BlobStorageHelper } = require("../../BlobStorageHelper");
 const { Logger, MessageType } = require("../../Logger");
 
-const client = new CallAutomationClient.CallAutomationClient(connectionString)
+const client = new CallAutomationClient.CallAutomationClient(connectionString);
 
 let recordingData = new Map<string, string>();
 let recFileFormat: FileFormat = FileFormat.mp4;
@@ -40,66 +41,60 @@ exports.startRecording = async function (req: Request, res: Response) {
       "Start recording API called with serverCallId =  " + serverCallId
     );
     var locator: ServerCallLocator = { id: serverCallId };
-    var options:StartRecordingOptions={callLocator:locator}
-    var output = await client.getCallRecording().startRecording(options)
+    var options: StartRecordingOptions = { callLocator: locator };
+    var startRecordingRequestOutput = await client
+      .getCallRecording()
+      .startRecording(options);
 
-    recordingData.set(serverCallId, output.recordingId);
-    return res.json(output);
+    recordingData.set(serverCallId, startRecordingRequestOutput.recordingId);
+    return res.json(startRecordingRequestOutput);
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
-exports.startRecordingWithOptions = async function (req: Request, res: Response) {
+exports.startRecordingWithOptions = async function (
+  req: Request,
+  res: Response
+) {
   try {
     let serverCallId: string = req.query.serverCallId!.toString();
 
     if (!serverCallId || String(serverCallId).trim() == "") {
       return res.status(400).json("serverCallId is invalid");
     }
-
-    let recordingContent: string = req.query.recordingContent
-      ? req.query.recordingContent.toString()
-      : "audiovideo";
-    let recordingChannel: string = req.query.recordingChannel
-      ? req.query.recordingChannel.toString()
-      : "mixed";
-    let recordingFormat: string = req.query.recordingFormat
-      ? req.query.recordingFormat.toString()
-      : "mp4";
-  
     Logger.logMessage(
       MessageType.INFORMATION,
       "Start recording API called with serverCallId =  " + serverCallId
     );
 
     var locator: ServerCallLocator = { id: serverCallId };
+
     var mapper = new Mapper();
-    var content = mapper.recContentMap.get(recordingContent)
-      ? mapper.recContentMap.get(recordingContent)
-      : "audiovideo";
-    var channel = mapper.recChannelMap.get(recordingChannel)
-      ? (mapper.recChannelMap.get(
-          recordingChannel
-        ) as RecordingChannel)
-      : RecordingChannel.Mixed;
-    var format = mapper.recFormatMap.get(recordingFormat)
-      ? mapper.recFormatMap.get(recordingFormat)
-      : "mp4";
+  req.query.recordingContent
+    var content = recordingDetails(req.query.recordingContent,mapper.recContentMap.get,"audiovideo");
+  var channel = recordingDetails(req.query.recordingChannel,mapper.recContentMap.get,"mixed"||RecordingChannel.Mixed);
+  var format = recordingDetails(req.query.recordingFormat,mapper.recContentMap.get,"mp4");
+
     var options: StartRecordingOptions = {
       recordingContent: content,
       recordingChannel: channel,
       recordingFormat: format,
-      callLocator: locator
+      callLocator: locator,
     };
-    var output = await client.getCallRecording().startRecording(locator, callbackUri, options);
+    var startRecordingOptionsRequestOutput = await client
+      .getCallRecording()
+      .startRecording(locator, callbackUri, options);
 
-    recordingData.set(serverCallId, output.recordingId);
-    return res.json(output);
+    recordingData.set(
+      serverCallId,
+      startRecordingOptionsRequestOutput.recordingId
+    );
+    return res.json(startRecordingOptionsRequestOutput);
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
@@ -125,15 +120,15 @@ exports.pauseRecording = async function (req: Request, res: Response) {
         recordingId
     );
 
-    try{
-      await client.getCallRecording().pauseRecording(recordingId)
+    try {
+      await client.getCallRecording().pauseRecording(recordingId);
       return res.json("Ok");
-    }catch(e){
-      return res.json(e)
+    } catch (e) {
+      return res.json(e);
     }
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
@@ -157,15 +152,15 @@ exports.resumeRecording = async function (req: Request, res: Response) {
         " and recordingId =  " +
         recordingId
     );
-      try{
-        await client.getCallRecording().resumeRecording(recordingId)
-        return res.json("Ok");
-      }catch(e){
-        return res.json(e)
-      }
+    try {
+      await client.getCallRecording().resumeRecording(recordingId);
+      return res.json("Ok");
+    } catch (e) {
+      return res.json(e);
+    }
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
@@ -189,16 +184,16 @@ exports.stopRecording = async function (req: Request, res: Response) {
         " and recordingId =  " +
         recordingId
     );
-    try{
-      await client.getCallRecording().stopRecording(recordingId)
-      Logger.logMessage("stopRecord response")
+    try {
+      await client.getCallRecording().stopRecording(recordingId);
+      Logger.logMessage("stopRecord response");
       return res.json("Ok");
-    }catch(e){
-      return res.json(e)
+    } catch (e) {
+      return res.json(e);
     }
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
@@ -222,17 +217,26 @@ exports.getRecordingState = async function (req: Request, res: Response) {
         " and recordingId =  " +
         recordingId
     );
-    var output = await client.getCallRecording().getRecordingState(recordingId)
-    if (output && output.recordingState) {
-      return res.json(output.recordingState);
+    var RecordingStateRequestOutput = await client
+      .getCallRecording()
+      .getRecordingState(recordingId);
+    if (
+      RecordingStateRequestOutput &&
+      RecordingStateRequestOutput.recordingState
+    ) {
+      return res.json(RecordingStateRequestOutput.recordingState);
     } else {
       return res
-        .status(output.statusCode ? output.statusCode : "500")
-        .json(output.message);
+        .status(
+          RecordingStateRequestOutput.statusCode
+            ? RecordingStateRequestOutput.statusCode
+            : "500"
+        )
+        .json(RecordingStateRequestOutput.message);
     }
   } catch (e) {
-    var output = BlobStorageHelper.getExecptionDetails(e);
-    return res.status(output.statusCode).json(String(output.output));
+    var exception = BlobStorageHelper.getExecptionDetails(e);
+    return res.status(exception.statusCode).json(String(exception.output));
   }
 };
 
@@ -245,11 +249,12 @@ exports.getRecordingFile = async function (req: Request, res: Response) {
       "Request data ---- >" + JSON.stringify(data)
     );
     while (true) {
-      data=req.body;
-      if (data !== undefined) break
-      await new Promise(resolve => setTimeout(resolve, 500))
+      data = req.body;
+      if (data !== undefined) break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    const deserializedData =await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
+    const deserializedData =
+      await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
     const event = deserializedData[0];
 
     Logger.logMessage(
@@ -275,8 +280,8 @@ exports.getRecordingFile = async function (req: Request, res: Response) {
           return res.status(400).json("Not successfull");
         }
       } catch (e) {
-        var output = BlobStorageHelper.getExecptionDetails(e);
-        return res.status(output.statusCode).json(String(output.output));
+        var exception = BlobStorageHelper.getExecptionDetails(e);
+        return res.status(exception.statusCode).json(String(exception.output));
       }
     }
 
@@ -348,8 +353,8 @@ exports.getRecordingFile = async function (req: Request, res: Response) {
     }
   } catch (e) {
     {
-      var output = BlobStorageHelper.getExecptionDetails(e);
-      return res.status(output.statusCode).json(String(output.output));
+      var exception = BlobStorageHelper.getExecptionDetails(e);
+      return res.status(exception.statusCode).json(String(exception.output));
     }
   }
 };
@@ -373,7 +378,7 @@ async function process_file(
     var downloadResponse: BlobDownloadResponseModel = await client.download(
       downloadLocation
     );
-      
+
     if (downloadResponse && downloadResponse.readableStreamBody) {
       var writeStream = fs.createWriteStream(fileName);
       writeStream.on("finish", () => {
@@ -394,7 +399,7 @@ async function process_file(
             console.log("Metadata file read failed:", err);
             return;
           }
-          
+
           let obj: Root.RootObject = JSON.parse(jsonString);
           recFileFormat = (obj.recordingInfo.format as FileFormat)
             ? (obj.recordingInfo.format as FileFormat)
@@ -432,4 +437,9 @@ async function process_file(
   } catch (e) {
     return BlobStorageHelper.getExecptionDetails(e);
   }
+}
+
+function recordingDetails(query: string | ParsedQs | string[] | ParsedQs[],get:(key: string) => string,recordingOption:string) {
+  let recordingProperty: string = query? query.toString() : recordingOption;
+  return get(recordingProperty) ? get(recordingProperty): recordingOption;
 }
