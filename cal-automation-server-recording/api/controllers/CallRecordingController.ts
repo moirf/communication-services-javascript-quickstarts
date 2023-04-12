@@ -74,8 +74,8 @@ exports.startRecordingWithOptions = async function (
     var mapper = new Mapper();
   req.query.recordingContent
     var content = recordingDetails(req.query.recordingContent,mapper.recContentMap.get,"audiovideo");
-  var channel = recordingDetails(req.query.recordingChannel,mapper.recContentMap.get,"mixed"||RecordingChannel.Mixed);
-  var format = recordingDetails(req.query.recordingFormat,mapper.recContentMap.get,"mp4");
+  var channel = recordingDetails(req.query.recordingChannel,mapper.recordingChannel.get,"mixed"||RecordingChannel.Mixed);
+  var format = recordingDetails(req.query.recordingFormat,mapper.recordingFormat.get,"mp4");
 
     var options: StartRecordingOptions = {
       recordingContent: content,
