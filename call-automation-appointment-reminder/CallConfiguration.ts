@@ -1,0 +1,45 @@
+import { EventAuthHandler } from "./EventHandler/EventAuthHandler";
+
+export class CallConfiguration {
+  TimedoutAudio: "";
+  public connectionString: string;
+  public sourcePhoneNumber: string;
+  public TargetPhoneNumber: string;
+  public appBaseUri: string;
+  public eventCallBackRoute: string;
+  public appointmentReminderMenuAudio: string;
+  public appointmentConfirmedAudio: string;
+  public appointmentCancelledAudio: string;
+  public invalidInputAudio: string;
+  public timedoutAudio: string;
+
+  constructor(
+    connectionString: string,
+    sourcePhoneNumber: string,
+    TargetPhoneNumber: string,
+    appBaseUri: string,
+    eventCallBackRoute: string,
+    appointmentReminderMenuAudio: string,
+    appointmentConfirmedAudio: string,
+    appointmentCancelledAudio: string,
+    invalidInputAudio: string,
+    timedoutAudio: string
+  ) {
+    this.connectionString= connectionString;
+    this.sourcePhoneNumber= sourcePhoneNumber;
+    this.TargetPhoneNumber= TargetPhoneNumber
+    this.appBaseUri= appBaseUri,
+    this.eventCallBackRoute= eventCallBackRoute,
+    this.appointmentReminderMenuAudio= appointmentReminderMenuAudio,
+    this.appointmentConfirmedAudio= appointmentConfirmedAudio,
+    this.appointmentCancelledAudio= appointmentCancelledAudio,
+    this.invalidInputAudio= invalidInputAudio,
+    this.timedoutAudio= timedoutAudio
+    var eventhandler: EventAuthHandler = EventAuthHandler.getInstance();
+    this.appCallbackUrl =
+      appBaseUrl +
+      "/api/outboundcall/callback?" +
+      eventhandler.getSecretQuerystring();
+    this.audioFileUrl = appBaseUrl + "/audio?filename=" + this.audioFileName;
+  }
+}
