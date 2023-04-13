@@ -64,7 +64,7 @@ export class Program {
           var pair: string[] = identities[i].split(",");
           if (pair[0] && pair[1]) {
             tasks[i] = new Promise((resolve) =>
-              new OutboundCallReminder(callConfiguration).report(
+              new AppointmentReminder(callConfiguration).report(
                 pair[0].trim(),
                 pair[1].trim()
               )

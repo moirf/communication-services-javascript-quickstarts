@@ -1,67 +1,125 @@
-using Azure.Communication;
-using Azure.Communication.CallAutomation;
-using Azure.Messaging;
-using CallAutomation_AppointmentReminder;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 
+import { MessageType, Logger } from "./Logger";
+import { CallConfiguration } from "./CallConfiguration";
+import { NotificationCallback } from "./EventHandler/NotificationCallback";
+import { EventDispatcher } from "./EventHandler/EventDispatcher";
 import {
     ServerCallLocator,
     StartRecordingOptions,
-    RecordingChannel
+    RecordingChannel,
+    CallAutomationClient,
+    CallConnection,
+    CreateCallOptions,
+    CreateCallResult,
+    MediaStreamingConfiguration,
+    MediaStreamingTransportType,
+    MediaStreamingContentType,
+    MediaStreamingAudioChannelType,
+    CallConnectionProperties,
+    CallAutomationEventParser,
+    CallAutomationEvent,
+    CallConnected
   } from "@azure/communication-call-automation";
-  import { Request, Response } from "express";
+  import { Request, Response, response } from "express";
   import * as fs from "fs";
   import { BlobDownloadResponseModel } from "@azure/storage-blob";
+  import{ CommunicationIdentifier,
+    CommunicationUserIdentifier,
+    PhoneNumberIdentifier} from "@azure/communication-common";  
+import { CloudEvent } from "@azure/eventgrid";
+import {} from "@azure/messaging"
   
-  var cfg = require("../../config");
+  var cfg = require("./Config");
 
 
 
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// var builder = WebApplication.CreateBuilder(args);
+// builder.Services.AddEndpointsApiExplorer();
+// builder.Services.AddSwaggerGen();
 
 //Fetch configuration and add call automation as singleton service
-var callConfigurationSection = builder.Configuration.GetSection(nameof(CallConfiguration));
-builder.Services.Configure<CallConfiguration>(callConfigurationSection);
-builder.Services.AddSingleton(new CallAutomationClient(callConfigurationSection["ConnectionString"]));
+// var callConfigurationSection = builder.Configuration.GetSection(nameof(CallConfiguration));
+// builder.Services.Configure<CallConfiguration>(callConfigurationSection);
+// builder.Services.AddSingleton(new CallAutomationClient(callConfigurationSection["ConnectionString"]));
 
-var app = builder.Build();
+// var app = builder.Build();
 
-var sourceIdentity = await app.ProvisionAzureCommunicationServicesIdentity(callConfigurationSection["ConnectionString"]);
+// var sourceIdentity = await app.ProvisionAzureCommunicationServicesIdentity(callConfigurationSection["ConnectionString"]);
+
+
+export class AppointmentReminder {
+    callConfiguration: CallConfiguration;
+    callAutomationClient: CallAutomationClient;
+    callConnection: CreateCallResult;
+    callAutomationEventParser: CallAutomationEventParser;
+    callAutomationEvent: CallAutomationEvent;
+    userIdentityRegex = new RegExp(
+      "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
+    );
+    phoneIdentityRegex = new RegExp("^\\+\\d{10,14}$");
+    maxRetryAttemptCount = 0;
+    targetPhoneNumber = null;
+    participant = null;
+    retryAttemptCount = 1;
+    toneReceivedEventComplete = false;
+    playAudioTaskCompleted = false;
+    playAudioTaskExecuted = false;
+
+    constructor(callConfiguration: CallConfiguration) {
+      this.callConfiguration = callConfiguration;
+      this.callAutomationClient = new CallAutomationClient(
+        this.callConfiguration.connectionString
+      );
+    }
 
 // Api to initiate out bound call
-app.MapPost("/api/call", async (CallAutomationClient callAutomationClient, IOptions<CallConfiguration> callConfiguration, ILogger<Program> logger) =>
+
+public async call(callAutomationClient:CallAutomationClient,callConfiguration: CallConfiguration, logger:Logger ) 
 {
-    var source = new CallSource(new CommunicationUserIdentifier(sourceIdentity))
-    {
-        CallerId = new PhoneNumberIdentifier(callConfiguration.Value.SourcePhoneNumber)
-    };
-    var target = new PhoneNumberIdentifier(callConfiguration.Value.TargetPhoneNumber);
+    try {
+        // Preparing request data
+        var source: PhoneNumberIdentifier = {
+            phoneNumber: callConfiguration.sourcePhoneNumber,
+        };
+        var target: CommunicationUserIdentifier[] = [
+            {communicationUserId: callConfiguration.TargetPhoneNumber},
+        ];
+        var createCallOption: CreateCallOptions = {
+            sourceCallIdNumber: source,
+            sourceDisplayName?: source.toString(),
+            // operationContext?: string,
+            // azureCognitiveServicesEndpointUrl?: string,
+            // mediaStreamingConfiguration?: MediaStreamingConfiguration
+        };
+  
+        Logger.logMessage(
+          MessageType.INFORMATION,
+          "Performing CreateCall operation"
+        );
+       
+         this.callConnection = await this.callAutomationClient.createCall(target,this.callConfiguration.appBaseUri,createCallOption);
 
-    var createCallOption = new CreateCallOptions(source,
-        new List<CommunicationIdentifier>() { target },
-        new Uri(callConfiguration.Value.CallbackEventUri));
-
-    var response = await callAutomationClient.CreateCallAsync(createCallOption).ConfigureAwait(false);
-
-    logger.LogInformation($"Reponse from create call: {response.GetRawResponse()}" +
-        $"CallConnection Id : {response.Value.CallConnection.CallConnectionId}");
-});
+        Logger.logMessage(
+            MessageType.INFORMATION,
+            "Reponse from create call: " +callConnection+
+        "CallConnection Id : "+callConnection.callConnection.callConnectionId
+          );
+        }catch(e){
+            Logger.logMessage(MessageType.ERROR,
+                "Failure occured while creating/establishing the call. Exception -- >" +e.message);
+        }
+};
 
 //api to handle call back events
-app.MapPost("/api/callbacks", async (CloudEvent[] cloudEvents, CallAutomationClient callAutomationClient, IOptions<CallConfiguration> callConfiguration, ILogger<Program> logger) =>
+public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationClient:CallAutomationClient , callConfiguration:CallConfiguration , logger:Logger)
 {
-    foreach (var cloudEvent in cloudEvents)
-    {
-        logger.LogInformation($"Event received: {JsonConvert.SerializeObject(cloudEvent)}");
+    cloudEvents.forEach(cloudEvent =>{
+        Logger.logMessage(MessageType.INFORMATION,"Event received: "+JSON.stringify(cloudEvent));
 
-        CallAutomationEventBase @event = CallAutomationEventParser.Parse(cloudEvent);
-        var callConnection = callAutomationClient.GetCallConnection(@event.CallConnectionId);
-        var callConnectionMedia = callConnection.GetCallMedia();
-        if (@event is CallConnected)
+        var event = this.callAutomationEventParser.parse(JSON.stringify(cloudEvent));
+        var callConnection = callAutomationClient.getCallConnection(event.then.name);
+        var callConnectionMedia = callConnection.getCallMedia();
+        if (event.eventType==CallConnected)
         {
             //Initiate recognition as call connected event is received
             logger.LogInformation($"CallConnected event received for call connection id: {@event.CallConnectionId}");
@@ -114,23 +172,25 @@ app.MapPost("/api/callbacks", async (CloudEvent[] cloudEvents, CallAutomationCli
             logger.LogInformation($"PlayFailed event received for call connection id: {@event.CallConnectionId}");
             await callConnection.HangUpAsync(forEveryone: true);
         }
-    }
+    })
+   
     return Results.Ok();
 }).Produces(StatusCodes.Status200OK);
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+// if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
+// {
+//     app.UseSwagger();
+//     app.UseSwaggerUI();
+// }
+
+// app.UseStaticFiles(new StaticFileOptions
+// {
+//     FileProvider = new PhysicalFileProvider(
+//            Path.Combine(builder.Environment.ContentRootPath, "audio")),
+//     RequestPath = "/audio"
+// });
+
+// app.UseHttpsRedirection();
+// app.Run();
 }
-
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-           Path.Combine(builder.Environment.ContentRootPath, "audio")),
-    RequestPath = "/audio"
-});
-
-app.UseHttpsRedirection();
-app.Run();
