@@ -18,7 +18,13 @@ import {
     CallConnectionProperties,
     CallAutomationEventParser,
     CallAutomationEvent,
-    CallConnected
+    CallConnected,
+    CallMediaRecognizeDtmfOptions,
+    DtmfTone,
+    RecognizeInputType,
+    RecognizeCompleted,
+    FileSource,
+    PlayOptions
   } from "@azure/communication-call-automation";
   import { Request, Response, response } from "express";
   import * as fs from "fs";
@@ -27,7 +33,7 @@ import {
     CommunicationUserIdentifier,
     PhoneNumberIdentifier} from "@azure/communication-common";  
 import { CloudEvent } from "@azure/eventgrid";
-import {} from "@azure/messaging"
+import { eventNames } from "process";
   
   var cfg = require("./Config");
 
@@ -71,7 +77,25 @@ export class AppointmentReminder {
         this.callConfiguration.connectionString
       );
     }
+    public  GetAudioForTone( toneDetected:DtmfTone,  callConfiguration:CallConfiguration)
+    {
+        let playSource:FileSource={uri:""};
 
+        if (toneDetected==(DtmfTone.One))
+        {
+            playSource.uri = callConfiguration.appBaseUri + callConfiguration.appointmentConfirmedAudio;
+        }
+        else if (toneDetected==(DtmfTone.Two))
+        {
+            playSource.uri = callConfiguration.appBaseUri + callConfiguration.appointmentCancelledAudio;
+        }
+        else // Invalid Dtmf tone
+        {
+            playSource.uri =callConfiguration.appBaseUri + callConfiguration.invalidInputAudio;
+        }
+
+        return playSource;
+    }
 // Api to initiate out bound call
 
 public async call(callAutomationClient:CallAutomationClient,callConfiguration: CallConfiguration, logger:Logger ) 
@@ -101,8 +125,8 @@ public async call(callAutomationClient:CallAutomationClient,callConfiguration: C
 
         Logger.logMessage(
             MessageType.INFORMATION,
-            "Reponse from create call: " +callConnection+
-        "CallConnection Id : "+callConnection.callConnection.callConnectionId
+            "Reponse from create call: " +this.callConnection+
+        "CallConnection Id : "+this.callConnection.callConnectionProperties.callConnectionId
           );
         }catch(e){
             Logger.logMessage(MessageType.ERROR,
@@ -119,63 +143,67 @@ public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationCl
         var event = this.callAutomationEventParser.parse(JSON.stringify(cloudEvent));
         var callConnection = callAutomationClient.getCallConnection(event.then.name);
         var callConnectionMedia = callConnection.getCallMedia();
-        if (event.eventType==CallConnected)
+        var eventResponse=await event.then(response=>(response))
+        if (eventResponse.kind=="CallConnected")
         {
+            var target: CommunicationUserIdentifier = {communicationUserId: callConfiguration.TargetPhoneNumber}
             //Initiate recognition as call connected event is received
-            logger.LogInformation($"CallConnected event received for call connection id: {@event.CallConnectionId}");
-            var recognizeOptions =
-            new CallMediaRecognizeDtmfOptions(CommunicationIdentifier.FromRawId(callConfiguration.Value.TargetPhoneNumber), maxTonesToCollect: 1)
+            Logger.logMessage(MessageType.INFORMATION,"CallConnected event received for call connection id: "+eventResponse.callConnectionId);
+            var recognizeOptions:CallMediaRecognizeDtmfOptions =
             {
-                InterruptPrompt = true,
-                InterToneTimeout = TimeSpan.FromSeconds(10),
-                InitialSilenceTimeout = TimeSpan.FromSeconds(5),
-                Prompt = new FileSource(new Uri(callConfiguration.Value.AppBaseUri + callConfiguration.Value.AppointmentReminderMenuAudio)),
-                OperationContext = "AppointmentReminderMenu"
+                interToneTimeoutInSeconds: Timespan.seconds(10),
+                maxTonesToCollect: 1,
+                stopDtmfTones: DtmfTone[5],
+                kind: "callMediaRecognizeDtmfOptions",                
+                recognizeInputType:RecognizeInputType.Dtmf,
+                targetParticipant: target
             };
-
             //Start recognition 
-            await callConnectionMedia.StartRecognizingAsync(recognizeOptions);
+            await callConnectionMedia.startRecognizing(recognizeOptions);
         }
-        if (@event is RecognizeCompleted { OperationContext: "AppointmentReminderMenu" })
+        if (eventResponse.kind=="RecognizeCompleted")
         {
             // Play audio once recognition is completed sucessfully
-            logger.LogInformation($"RecognizeCompleted event received for call connection id: {@event.CallConnectionId}");
-            var recognizeCompletedEvent = (RecognizeCompleted)@event;
-            var toneDetected = recognizeCompletedEvent.CollectTonesResult.Tones[0];
-            var playSource = Utils.GetAudioForTone(toneDetected, callConfiguration);
-
+            Logger.logMessage(MessageType.INFORMATION,"RecognizeCompleted event received for call connection id: "+eventResponse.callConnectionId);
+            var recognizeCompletedEvent:RecognizeCompleted = eventResponse;
+            var toneDetected= recognizeCompletedEvent.collectTonesResult?.tones[0];
+            var playSource = this.GetAudioForTone(toneDetected, callConfiguration);
+            var playOptions:PlayOptions={OperationContext : "ResponseToDtmf", Loop : false }
             // Play audio for dtmf response
-            await callConnectionMedia.PlayToAllAsync(playSource, new PlayOptions { OperationContext = "ResponseToDtmf", Loop = false });
+            await callConnectionMedia.playToAll(playSource, playOptions);
         }
-        if (@event is RecognizeFailed { OperationContext: "AppointmentReminderMenu" })
+        if (eventResponse.kind=="RecognizeFailed")
         {
-            logger.LogInformation($"RecognizeFailed event received for call connection id: {@event.CallConnectionId}");
-            var recognizeFailedEvent = (RecognizeFailed)@event;
+            Logger.logMessage(MessageType.INFORMATION,"RecognizeFailed event received for call connection id: "+eventResponse.callConnectionId);
+            var recognizeFailedEvent = eventResponse;
 
             // Check for time out, and then play audio message
-            if (recognizeFailedEvent.ReasonCode.Equals(ReasonCode.RecognizeInitialSilenceTimedOut))
+            if (recognizeFailedEvent.ReasonCode==(ReasonCode.RecognizeInitialSilenceTimedOut))
             {
-                logger.LogInformation($"Recognition timed out for call connection id: {@event.CallConnectionId}");
+                Logger.logMessage(MessageType.INFORMATION,"Recognition timed out for call connection id: "+eventResponse.callConnectionId);
                 var playSource = new FileSource(new Uri(callConfiguration.Value.AppBaseUri + callConfiguration.Value.TimedoutAudio));
                 
                 //Play audio for time out
-                await callConnectionMedia.PlayToAllAsync(playSource, new PlayOptions { OperationContext = "ResponseToDtmf", Loop = false });
+                await callConnectionMedia.playToAll(playSource, new PlayOptions { OperationContext = "ResponseToDtmf", Loop = false });
             }
         }
-        if (@event is PlayCompleted { OperationContext: "ResponseToDtmf" })
+        if (eventResponse.kind=="PlayCompleted")
         {
-            logger.LogInformation($"PlayCompleted event received for call connection id: {@event.CallConnectionId}");
-            await callConnection.HangUpAsync(forEveryone: true);
+            Logger.logMessage(MessageType.INFORMATION,"PlayCompleted event received for call connection id: "+eventResponse.callConnectionId);
+            await callConnection.hangUp(true);
         }
-        if (@event is PlayFailed { OperationContext: "ResponseToDtmf" })
+        if (eventResponse.kind=="PlayFailed" )
         {
-            logger.LogInformation($"PlayFailed event received for call connection id: {@event.CallConnectionId}");
-            await callConnection.HangUpAsync(forEveryone: true);
+            Logger.logMessage(MessageType.INFORMATION,"PlayFailed event received for call connection id: "+eventResponse.callConnectionId);
+            await callConnection.hangUp(true);
         }
     })
    
     return Results.Ok();
 }).Produces(StatusCodes.Status200OK);
+
+
+
 
 // Configure the HTTP request pipeline.
 // if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
