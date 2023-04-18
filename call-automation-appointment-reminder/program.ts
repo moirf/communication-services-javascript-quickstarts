@@ -4,6 +4,7 @@ import { CommunicationIdentityClient } from "@azure/communication-identity";
 import { Logger, MessageType } from "./Logger";
 import { CommunicationUserIdentifier } from "@azure/communication-common";
 import { AppointmentReminder } from "./AppointmentReminder";
+import { CallAutomationClient } from "@azure/communication-call-automation";
 var configuration = require("./config");
 const sdk = require("microsoft-cognitiveservices-speech-sdk");
 const fs = require("fs");
@@ -12,7 +13,7 @@ export class Program {
   url = "http://localhost:9007";
   static ngrokService: NgrokService;
   serverPort = "9007";
-  private static instance = null;
+  private static instance = new Program();
 
   static getInstance(): Program {
     if (this.instance == null) {
@@ -51,42 +52,28 @@ export class Program {
   async runSample(ngrokUrl: string) {
     var appBaseUrl: string = ngrokUrl;
     var callConfiguration: CallConfiguration = await this.initiateConfiguration(
-      appBaseUrl
+      appBaseUrl,configuration
     );
-    var outboundCallPairs: string = configuration.DestinationIdentities;
-
+    var targetNumber: string = configuration.TargetPhoneNumber;
+    var callAutomationClient:CallAutomationClient;
     try {
-      if (outboundCallPairs != null && outboundCallPairs) {
-        var identities: string[] = outboundCallPairs.split(";");
-        var tasks = new Array(identities.length);
-
-        for (var i = 0; i < identities.length; i++) {
-          var pair: string[] = identities[i].split(",");
-          if (pair[0] && pair[1]) {
-            tasks[i] = new Promise((resolve) =>
-              new AppointmentReminder(callConfiguration).report(
-                pair[0].trim(),
-                pair[1].trim()
+      if (targetNumber != null && targetNumber) {
+            var tasks = new Promise((resolve) =>
+              new AppointmentReminder(callConfiguration).call(
+                callAutomationClient,configuration
               )
             );
-          } else {
-            Logger.logMessage(
-              MessageType.ERROR,
-              "Failed to initiate the outbound call, identities are not in correct format"
-            );
-          }
-        }
-        const results = await Promise.all(tasks);
+        const results = await Promise.resolve(tasks);
       }
     } catch (ex) {
       Logger.logMessage(
         MessageType.ERROR,
-        "Failed to initiate the outbound call Exception -- > " + ex.getMessage()
+        "Failed to initiate the reminder call Exception -- > " + ex.getMessage()
       );
     }
     await this.deleteUser(
       callConfiguration.connectionString,
-      callConfiguration.sourceIdentity
+      callConfiguration.sourcePhoneNumber
     );
   }
 
@@ -166,17 +153,30 @@ export class Program {
   /// </summary>
   /// <param name="appBaseUrl">The base url of the app.</param>
   /// <returns>The <c CallConfiguration object.</returns>
-  async initiateConfiguration(appBaseUrl) {
-    var connectionString = configuration.Connectionstring;
-    var sourcePhoneNumber = configuration.SourcePhone;
-    var sourceIdentity = await this.createUser(connectionString);
-    var audioFileName = await this.generateCustomAudioMessage();
+  async initiateConfiguration(appBaseUrl:string,configuration:CallConfiguration) {
+    var connectionString = configuration.connectionString;
+    var sourcePhoneNumber = configuration.sourcePhoneNumber;
+    var TargetPhoneNumber=configuration.TargetPhoneNumber;
+    var appBaseUri=appBaseUrl;
+    var eventCallBackRoute=configuration.eventCallBackRoute;
+    var appointmentReminderMenuAudio=configuration.appointmentReminderMenuAudio;
+    var appointmentConfirmedAudio=configuration.appointmentConfirmedAudio;
+    var appointmentCancelledAudio=configuration.appointmentCancelledAudio;
+    var invalidInputAudio=configuration.invalidInputAudio;
+    var timedoutAudio=configuration.TimedoutAudio;
+    var ngrokExePath=configuration.ngrokExePath;
     return new CallConfiguration(
       connectionString,
-      sourceIdentity,
-      sourcePhoneNumber,
-      appBaseUrl,
-      audioFileName
+    sourcePhoneNumber,
+    TargetPhoneNumber,
+    appBaseUri,
+    eventCallBackRoute,
+    appointmentReminderMenuAudio,
+    appointmentConfirmedAudio,
+    appointmentCancelledAudio,
+    invalidInputAudio,
+    timedoutAudio,
+    ngrokExePath
     );
   }
 

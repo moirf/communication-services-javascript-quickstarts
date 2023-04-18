@@ -4,18 +4,10 @@ import { CallConfiguration } from "./CallConfiguration";
 import { NotificationCallback } from "./EventHandler/NotificationCallback";
 import { EventDispatcher } from "./EventHandler/EventDispatcher";
 import {
-    ServerCallLocator,
-    StartRecordingOptions,
-    RecordingChannel,
     CallAutomationClient,
     CallConnection,
     CreateCallOptions,
     CreateCallResult,
-    MediaStreamingConfiguration,
-    MediaStreamingTransportType,
-    MediaStreamingContentType,
-    MediaStreamingAudioChannelType,
-    CallConnectionProperties,
     CallAutomationEventParser,
     CallAutomationEvent,
     CallConnected,
@@ -23,17 +15,18 @@ import {
     DtmfTone,
     RecognizeInputType,
     RecognizeCompleted,
-    FileSource,
-    PlayOptions
+    FileSource
   } from "@azure/communication-call-automation";
-  import { Request, Response, response } from "express";
-  import * as fs from "fs";
-  import { BlobDownloadResponseModel } from "@azure/storage-blob";
+//   import { Request, Response, response } from "express";
+//   import * as fs from "fs";
+//   import { BlobDownloadResponseModel } from "@azure/storage-blob";
   import{ CommunicationIdentifier,
     CommunicationUserIdentifier,
     PhoneNumberIdentifier} from "@azure/communication-common";  
 import { CloudEvent } from "@azure/eventgrid";
-import { eventNames } from "process";
+// import { eventNames } from "process";
+// import { File } from "buffer";
+import {TimeSpan} from './TimeSpan';
   
   var cfg = require("./Config");
 
@@ -97,8 +90,24 @@ export class AppointmentReminder {
         return playSource;
     }
 // Api to initiate out bound call
+public ConvertTime(num:number){
+    let hours=Math.floor(num/60).toString();
+    if(hours.length===1){
+        hours='0'+hours;
+    }
+    let minutes= Math.floor(num % 60).toString();
+    if(minutes.length===1){
+        minutes='0'+minutes;
+    }
+    let seconds= Math.floor((num % 60)%60).toString();
+    if(seconds.length===1){
+        seconds='0'+seconds;
+    }
+    let totalTime=`${hours}:${minutes}:${seconds}`
+    return Number(totalTime)
 
-public async call(callAutomationClient:CallAutomationClient,callConfiguration: CallConfiguration, logger:Logger ) 
+}
+public async call(callAutomationClient:CallAutomationClient,callConfiguration: CallConfiguration, logger?:Logger ) 
 {
     try {
         // Preparing request data
@@ -110,10 +119,7 @@ public async call(callAutomationClient:CallAutomationClient,callConfiguration: C
         ];
         var createCallOption: CreateCallOptions = {
             sourceCallIdNumber: source,
-            sourceDisplayName?: source.toString(),
-            // operationContext?: string,
-            // azureCognitiveServicesEndpointUrl?: string,
-            // mediaStreamingConfiguration?: MediaStreamingConfiguration
+            sourceDisplayName: source.toString(),
         };
   
         Logger.logMessage(
@@ -137,7 +143,7 @@ public async call(callAutomationClient:CallAutomationClient,callConfiguration: C
 //api to handle call back events
 public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationClient:CallAutomationClient , callConfiguration:CallConfiguration , logger:Logger)
 {
-    cloudEvents.forEach(cloudEvent =>{
+    cloudEvents.forEach(async cloudEvent =>{
         Logger.logMessage(MessageType.INFORMATION,"Event received: "+JSON.stringify(cloudEvent));
 
         var event = this.callAutomationEventParser.parse(JSON.stringify(cloudEvent));
@@ -149,9 +155,11 @@ public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationCl
             var target: CommunicationUserIdentifier = {communicationUserId: callConfiguration.TargetPhoneNumber}
             //Initiate recognition as call connected event is received
             Logger.logMessage(MessageType.INFORMATION,"CallConnected event received for call connection id: "+eventResponse.callConnectionId);
+            var date=Date.now().toString();
             var recognizeOptions:CallMediaRecognizeDtmfOptions =
             {
-                interToneTimeoutInSeconds: Timespan.seconds(10),
+                interToneTimeoutInSeconds: this.ConvertTime(10),
+                // interToneTimeoutInSeconds: TimeSpan.fromSeconds(10) as unknown as number,
                 maxTonesToCollect: 1,
                 stopDtmfTones: DtmfTone[5],
                 kind: "callMediaRecognizeDtmfOptions",                
@@ -166,25 +174,25 @@ public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationCl
             // Play audio once recognition is completed sucessfully
             Logger.logMessage(MessageType.INFORMATION,"RecognizeCompleted event received for call connection id: "+eventResponse.callConnectionId);
             var recognizeCompletedEvent:RecognizeCompleted = eventResponse;
-            var toneDetected= recognizeCompletedEvent.collectTonesResult?.tones[0];
+            var toneDetected= (recognizeCompletedEvent?.collectTonesResult?.tones ? recognizeCompletedEvent?.collectTonesResult?.tones[0] :undefined) as DtmfTone;
             var playSource = this.GetAudioForTone(toneDetected, callConfiguration);
-            var playOptions:PlayOptions={OperationContext : "ResponseToDtmf", Loop : false }
             // Play audio for dtmf response
-            await callConnectionMedia.playToAll(playSource, playOptions);
+            await callConnectionMedia.playToAll(playSource, {operationContext : "ResponseToDtmf", loop : false });
         }
         if (eventResponse.kind=="RecognizeFailed")
         {
             Logger.logMessage(MessageType.INFORMATION,"RecognizeFailed event received for call connection id: "+eventResponse.callConnectionId);
             var recognizeFailedEvent = eventResponse;
-
+            let playSource:FileSource={uri:""};
             // Check for time out, and then play audio message
-            if (recognizeFailedEvent.ReasonCode==(ReasonCode.RecognizeInitialSilenceTimedOut))
+            // if (recognizeFailedEvent.resultInformation?.subCode==(ReasonCode.RecognizeInitialSilenceTimedOut))
+            if (recognizeFailedEvent.resultInformation?.subCode==8510)
             {
                 Logger.logMessage(MessageType.INFORMATION,"Recognition timed out for call connection id: "+eventResponse.callConnectionId);
-                var playSource = new FileSource(new Uri(callConfiguration.Value.AppBaseUri + callConfiguration.Value.TimedoutAudio));
+                playSource.uri = callConfiguration.appBaseUri + callConfiguration.TimedoutAudio;
                 
                 //Play audio for time out
-                await callConnectionMedia.playToAll(playSource, new PlayOptions { OperationContext = "ResponseToDtmf", Loop = false });
+                await callConnectionMedia.playToAll(playSource, { operationContext : "ResponseToDtmf", loop : false });
             }
         }
         if (eventResponse.kind=="PlayCompleted")
@@ -198,9 +206,10 @@ public async callbacks(cloudEvents:CloudEvent<MessageEvent>[] , callAutomationCl
             await callConnection.hangUp(true);
         }
     })
-   
-    return Results.Ok();
-}).Produces(StatusCodes.Status200OK);
+    // return Results.Ok();
+}
+//     return Results.Ok();
+// }).Produces(StatusCodes.Status200OK);
 
 
 

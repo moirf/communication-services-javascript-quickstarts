@@ -12,6 +12,7 @@ export class CallConfiguration {
   public appointmentCancelledAudio: string;
   public invalidInputAudio: string;
   public timedoutAudio: string;
+  public ngrokExePath:string;
 
   constructor(
     connectionString: string,
@@ -23,7 +24,8 @@ export class CallConfiguration {
     appointmentConfirmedAudio: string,
     appointmentCancelledAudio: string,
     invalidInputAudio: string,
-    timedoutAudio: string
+    timedoutAudio: string,
+    ngrokExePath:string
   ) {
     this.connectionString= connectionString;
     this.sourcePhoneNumber= sourcePhoneNumber;
@@ -34,12 +36,13 @@ export class CallConfiguration {
     this.appointmentConfirmedAudio= appointmentConfirmedAudio,
     this.appointmentCancelledAudio= appointmentCancelledAudio,
     this.invalidInputAudio= invalidInputAudio,
-    this.timedoutAudio= timedoutAudio
+    this.timedoutAudio= timedoutAudio,
+    this.ngrokExePath=ngrokExePath
     var eventhandler: EventAuthHandler = EventAuthHandler.getInstance();
-    this.appCallbackUrl =
-      appBaseUrl +
-      "/api/outboundcall/callback?" +
-      eventhandler.getSecretQuerystring();
-    this.audioFileUrl = appBaseUrl + "/audio?filename=" + this.audioFileName;
+    // this.appCallbackUrl =
+    // appBaseUri +
+    //   "/api/outboundcall/callback?" +
+    //   eventhandler.getSecretQuerystring();
+    // this.audioFileUrl = appBaseUrl + "/audio?filename=" + this.audioFileName;
   }
 }
