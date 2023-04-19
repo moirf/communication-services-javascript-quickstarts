@@ -6,8 +6,8 @@ import { CommunicationUserIdentifier } from "@azure/communication-common";
 import { AppointmentReminder } from "./AppointmentReminder";
 import { CallAutomationClient } from "@azure/communication-call-automation";
 var configuration = require("./config");
-const sdk = require("microsoft-cognitiveservices-speech-sdk");
-const fs = require("fs");
+// const sdk = require("microsoft-cognitiveservices-speech-sdk");
+// const fs = require("fs");
 
 export class Program {
   url = "http://localhost:9007";
@@ -58,6 +58,7 @@ export class Program {
     var callAutomationClient:CallAutomationClient;
     try {
       if (targetNumber != null && targetNumber) {
+        console.log("inside if block")
             var tasks = new Promise((resolve) =>
               new AppointmentReminder(callConfiguration).call(
                 callAutomationClient,configuration
@@ -102,51 +103,51 @@ export class Program {
   /// <summary>
   /// Get .wav Audio file
   /// </summary>
-  async generateCustomAudioMessage(): Promise<string> {
-    var key: string = configuration.CognitiveServiceKey;
-    var region: string = configuration.CognitiveServiceRegion;
-    var customMessage: string = configuration.CustomMessage;
+  // async generateCustomAudioMessage(): Promise<string> {
+  //   var key: string = configuration.CognitiveServiceKey;
+  //   var region: string = configuration.CognitiveServiceRegion;
+  //   var customMessage: string = configuration.CustomMessage;
 
-    try {
-      if (
-        key != null &&
-        !key &&
-        region != null &&
-        !region &&
-        customMessage != null &&
-        !customMessage
-      ) {
-        const speechConfig = sdk.SpeechConfig.fromSubscription(key, region);
+  //   try {
+  //     if (
+  //       key != null &&
+  // //       !key &&
+  // //       region != null &&
+  // //       !region &&
+  // //       customMessage != null &&
+  // //       !customMessage
+  //     ) {
+  //       const speechConfig = sdk.SpeechConfig.fromSubscription(key, region);
 
-        let pushStream = sdk.AudioInputStream.createPushStream();
+  //       let pushStream = sdk.AudioInputStream.createPushStream();
 
-        fs.createReadStream("./audio/custom-message.wav")
-          .on("data", function (customMessage) {
-            pushStream.write(customMessage);
-          })
-          .on("end", function () {
-            pushStream.close();
-          });
+  //       fs.createReadStream("./audio/custom-message.wav")
+  //         .on("data", function (customMessage) {
+  //           pushStream.write(customMessage);
+  //         })
+  //         .on("end", function () {
+  //           pushStream.close();
+  //         });
 
-        let audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
-        let recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+  //       let audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
+  //       let recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
 
-        recognizer.recognizeOnceAsync((result) => {
-          console.log(`RECOGNIZED: Text=${result.text}`);
-          recognizer.close();
-        });
-        return "custom-message.wav";
-      }
-      return "sample-message.wav";
-    } catch (ex) {
-      Logger.logMessage(
-        MessageType.ERROR,
-        "Exception while generating text to speech, falling back to sample audio. Exception -- > " +
-          ex.message
-      );
-      return "sample-message.wav";
-    }
-  }
+  //       recognizer.recognizeOnceAsync((result) => {
+  //         console.log(`RECOGNIZED: Text=${result.text}`);
+  //         recognizer.close();
+  //       });
+  //       return "custom-message.wav";
+  //     }
+  //     return "sample-message.wav";
+  //   } catch (ex) {
+  //     Logger.logMessage(
+  //       MessageType.ERROR,
+  //       "Exception while generating text to speech, falling back to sample audio. Exception -- > " +
+  //         ex.message
+  //     );
+  //     return "sample-message.wav";
+  //   }
+  // }
 
   /// <summary>
   /// Fetch configurations from App Settings and create source identity

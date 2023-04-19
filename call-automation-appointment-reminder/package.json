@@ -2,9 +2,11 @@
   "name": "call-automation-appointment-reminder",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js",
+    "build": "npx -p typescript tsc"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +24,7 @@
     "@azure/communication-common": "^2.2.0",
     "@azure/communication-identity": "^1.2.0",
     "@azure/eventgrid": "^4.4.0",
+    "axios": "^1.3.5",
     "body-parser": "^1.19.0",
     "config": "^3.3.6",
     "connect": "^3.7.0",
@@ -30,5 +33,4 @@
     "ngrok": "^4.3.3",
     "validator": "^13.6.0"
   }
-  
 }

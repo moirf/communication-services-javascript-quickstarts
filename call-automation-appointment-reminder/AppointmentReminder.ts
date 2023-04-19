@@ -1,8 +1,8 @@
 
 import { MessageType, Logger } from "./Logger";
 import { CallConfiguration } from "./CallConfiguration";
-import { NotificationCallback } from "./EventHandler/NotificationCallback";
-import { EventDispatcher } from "./EventHandler/EventDispatcher";
+// import { NotificationCallback } from "./EventHandler/NotificationCallback";
+// import { EventDispatcher } from "./EventHandler/EventDispatcher";
 import {
     CallAutomationClient,
     CallConnection,
@@ -28,7 +28,7 @@ import { CloudEvent } from "@azure/eventgrid";
 // import { File } from "buffer";
 import {TimeSpan} from './TimeSpan';
   
-  var cfg = require("./Config");
+  var cfg = require("./config");
 
 
 
@@ -67,7 +67,7 @@ export class AppointmentReminder {
     constructor(callConfiguration: CallConfiguration) {
       this.callConfiguration = callConfiguration;
       this.callAutomationClient = new CallAutomationClient(
-        this.callConfiguration.connectionString
+        callConfiguration.connectionString
       );
     }
     public  GetAudioForTone( toneDetected:DtmfTone,  callConfiguration:CallConfiguration)

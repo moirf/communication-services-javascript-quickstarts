@@ -3,10 +3,10 @@ var config = module.exports = { ConnectionString: '', SourcePhoneNumber: '', Tar
 config = { 'ConnectionString': '', 'SourcePhoneNumber': '', 'TargetPhoneNumber': '', 'AppBaseUri': '', 'EventCallBackRoute': '', 'AppointmentReminderMenuAudio': '', 'AppointmentConfirmedAudio':'', 'AppointmentCancelledAudio':'', 'InvalidInputAudio':'', 'TimedoutAudio':'','NgrokExePath':''};
 
 
-config.ConnectionString= "%Connection String%",
-config.SourcePhoneNumber= "%Source Phone Number%",
-config.TargetPhoneNumber= "%Target or Destination Phone number%",
-config.AppBaseUri= "%App base uri%",
+config.ConnectionString= "",
+config.SourcePhoneNumber= "",
+config.TargetPhoneNumber= "",
+config.AppBaseUri= "",
 config.EventCallBackRoute= "/api/callbacks",
 config.AppointmentReminderMenuAudio= "/audio/AppointmentReminderMenu.wav",
 config.AppointmentConfirmedAudio= "/audio/AppointmentConfirmedAudio.wav",

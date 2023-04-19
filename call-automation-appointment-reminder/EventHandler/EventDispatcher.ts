@@ -4,13 +4,13 @@ import {
   ToneReceivedEvent,
   PlayAudioResultEvent,
   AddParticipantResultEvent,
-} from "@azure/communication-callingserver";
+} from "@azure/communication-call-automation";
 import { Logger, MessageType } from "../Logger";
 import { NotificationCallback } from "./NotificationCallback";
 
 export class EventDispatcher {
-  private static instance: EventDispatcher = null;
-  private notificationCallbacks: Map<string, NotificationCallback> = null;
+  private static instance: EventDispatcher;
+  private notificationCallbacks: Map<string, NotificationCallback>;
 
   constructor() {
     this.notificationCallbacks = new Map();
@@ -54,7 +54,7 @@ export class EventDispatcher {
       let [callEvent, eventKey] = await this.extractEvent(request);
 
       if (callEvent != null) {
-        var notificationCallback: NotificationCallback =
+        var notificationCallback: NotificationCallback |undefined =
           this.notificationCallbacks.get(eventKey.toString());
         if (notificationCallback != null) {
           notificationCallback.callback(callEvent);
