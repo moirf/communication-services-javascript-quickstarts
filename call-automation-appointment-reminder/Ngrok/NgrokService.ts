@@ -42,7 +42,9 @@ export class NgrokService {
       await this.delay(2000);
 
       try {
+        console.log("ngrokTunnelUrl" + this.ngrokTunnelUrl);
         const response = await axios.get(this.ngrokTunnelUrl);
+        console.log("response" + response);
         ngrokUrl = response.data.tunnels[0].public_url;
         return ngrokUrl;
       } catch (ex) {

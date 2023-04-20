@@ -4,7 +4,7 @@ export class CallConfiguration {
   TimedoutAudio: "";
   public connectionString: string;
   public sourcePhoneNumber: string;
-  public TargetPhoneNumber: string;
+  public targetPhoneNumber: string;
   public appBaseUri: string;
   public eventCallBackRoute: string;
   public appointmentReminderMenuAudio: string;
@@ -17,7 +17,7 @@ export class CallConfiguration {
   constructor(
     connectionString: string,
     sourcePhoneNumber: string,
-    TargetPhoneNumber: string,
+    targetPhoneNumber: string,
     appBaseUri: string,
     eventCallBackRoute: string,
     appointmentReminderMenuAudio: string,
@@ -29,7 +29,7 @@ export class CallConfiguration {
   ) {
     this.connectionString= connectionString;
     this.sourcePhoneNumber= sourcePhoneNumber;
-    this.TargetPhoneNumber= TargetPhoneNumber
+    this.targetPhoneNumber= targetPhoneNumber
     this.appBaseUri= appBaseUri,
     this.eventCallBackRoute= eventCallBackRoute,
     this.appointmentReminderMenuAudio= appointmentReminderMenuAudio,

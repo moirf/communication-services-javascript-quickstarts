@@ -7,7 +7,7 @@ var express = require("express"),
 var bodyParser = require("body-parser");
 // var appointmentReminder = require("./AppointmentReminder")();
 // var routes = require('./Routes');
-var routes = require('./Routes');
+var routes = require("./Routes");
 // routes(app);
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());

@@ -25,7 +25,8 @@ export class Program {
   async main() {
     Logger.logMessage(MessageType.INFORMATION, "Starting ACS Sample App");
     // Start Ngrok service
-    const ngrokUrl = await Program.startNgrokService();
+    const ngrokUrl = configuration.AppBaseUri;
+    // const ngrokUrl = await Program.startNgrokService();
 
     try {
       if (ngrokUrl) {
@@ -52,18 +53,16 @@ export class Program {
   async runSample(ngrokUrl: string) {
     var appBaseUrl: string = ngrokUrl;
     var callConfiguration: CallConfiguration = await this.initiateConfiguration(
-      appBaseUrl,configuration
+      appBaseUrl
     );
     var targetNumber: string = configuration.TargetPhoneNumber;
-    var callAutomationClient:CallAutomationClient;
+    var callAutomationClient: CallAutomationClient;
     try {
       if (targetNumber != null && targetNumber) {
-        console.log("inside if block")
-            var tasks = new Promise((resolve) =>
-              new AppointmentReminder(callConfiguration).call(
-                callAutomationClient,configuration
-              )
-            );
+        console.log("inside if block");
+        var tasks = new Promise((resolve) =>
+          new AppointmentReminder(callConfiguration).report(callConfiguration)
+        );
         const results = await Promise.resolve(tasks);
       }
     } catch (ex) {
@@ -101,83 +100,35 @@ export class Program {
   }
 
   /// <summary>
-  /// Get .wav Audio file
-  /// </summary>
-  // async generateCustomAudioMessage(): Promise<string> {
-  //   var key: string = configuration.CognitiveServiceKey;
-  //   var region: string = configuration.CognitiveServiceRegion;
-  //   var customMessage: string = configuration.CustomMessage;
-
-  //   try {
-  //     if (
-  //       key != null &&
-  // //       !key &&
-  // //       region != null &&
-  // //       !region &&
-  // //       customMessage != null &&
-  // //       !customMessage
-  //     ) {
-  //       const speechConfig = sdk.SpeechConfig.fromSubscription(key, region);
-
-  //       let pushStream = sdk.AudioInputStream.createPushStream();
-
-  //       fs.createReadStream("./audio/custom-message.wav")
-  //         .on("data", function (customMessage) {
-  //           pushStream.write(customMessage);
-  //         })
-  //         .on("end", function () {
-  //           pushStream.close();
-  //         });
-
-  //       let audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
-  //       let recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
-
-  //       recognizer.recognizeOnceAsync((result) => {
-  //         console.log(`RECOGNIZED: Text=${result.text}`);
-  //         recognizer.close();
-  //       });
-  //       return "custom-message.wav";
-  //     }
-  //     return "sample-message.wav";
-  //   } catch (ex) {
-  //     Logger.logMessage(
-  //       MessageType.ERROR,
-  //       "Exception while generating text to speech, falling back to sample audio. Exception -- > " +
-  //         ex.message
-  //     );
-  //     return "sample-message.wav";
-  //   }
-  // }
-
-  /// <summary>
   /// Fetch configurations from App Settings and create source identity
   /// </summary>
   /// <param name="appBaseUrl">The base url of the app.</param>
   /// <returns>The <c CallConfiguration object.</returns>
-  async initiateConfiguration(appBaseUrl:string,configuration:CallConfiguration) {
-    var connectionString = configuration.connectionString;
-    var sourcePhoneNumber = configuration.sourcePhoneNumber;
-    var TargetPhoneNumber=configuration.TargetPhoneNumber;
-    var appBaseUri=appBaseUrl;
-    var eventCallBackRoute=configuration.eventCallBackRoute;
-    var appointmentReminderMenuAudio=configuration.appointmentReminderMenuAudio;
-    var appointmentConfirmedAudio=configuration.appointmentConfirmedAudio;
-    var appointmentCancelledAudio=configuration.appointmentCancelledAudio;
-    var invalidInputAudio=configuration.invalidInputAudio;
-    var timedoutAudio=configuration.TimedoutAudio;
-    var ngrokExePath=configuration.ngrokExePath;
+  async initiateConfiguration(appBaseUrl: string) {
+    var connectionString = configuration.ConnectionString;
+    var sourcePhoneNumber = configuration.SourcePhoneNumber;
+    var targetPhoneNumber = configuration.TargetPhoneNumber;
+    var appBaseUri = appBaseUrl;
+    var eventCallBackRoute = configuration.EventCallBackRoute;
+    var appointmentReminderMenuAudio =
+      configuration.AppointmentReminderMenuAudio;
+    var appointmentConfirmedAudio = configuration.AppointmentConfirmedAudio;
+    var appointmentCancelledAudio = configuration.AppointmentCancelledAudio;
+    var invalidInputAudio = configuration.InvalidInputAudio;
+    var timedoutAudio = configuration.TimedoutAudio;
+    var ngrokExePath = configuration.NgrokExePath;
     return new CallConfiguration(
       connectionString,
-    sourcePhoneNumber,
-    TargetPhoneNumber,
-    appBaseUri,
-    eventCallBackRoute,
-    appointmentReminderMenuAudio,
-    appointmentConfirmedAudio,
-    appointmentCancelledAudio,
-    invalidInputAudio,
-    timedoutAudio,
-    ngrokExePath
+      sourcePhoneNumber,
+      targetPhoneNumber,
+      appBaseUri,
+      eventCallBackRoute,
+      appointmentReminderMenuAudio,
+      appointmentConfirmedAudio,
+      appointmentCancelledAudio,
+      invalidInputAudio,
+      timedoutAudio,
+      ngrokExePath
     );
   }
 

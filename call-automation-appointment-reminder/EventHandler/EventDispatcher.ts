@@ -54,7 +54,7 @@ export class EventDispatcher {
       let [callEvent, eventKey] = await this.extractEvent(request);
 
       if (callEvent != null) {
-        var notificationCallback: NotificationCallback |undefined =
+        var notificationCallback: NotificationCallback | undefined =
           this.notificationCallbacks.get(eventKey.toString());
         if (notificationCallback != null) {
           notificationCallback.callback(callEvent);
