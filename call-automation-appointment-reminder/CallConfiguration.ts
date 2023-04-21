@@ -13,6 +13,9 @@ export class CallConfiguration {
   public invalidInputAudio: string;
   public timedoutAudio: string;
   public ngrokExePath:string;
+  public appCallbackUrl: string;
+  public audioFileUrl: string;
+  // public audioFileName: string;
 
   constructor(
     connectionString: string,
@@ -25,7 +28,8 @@ export class CallConfiguration {
     appointmentCancelledAudio: string,
     invalidInputAudio: string,
     timedoutAudio: string,
-    ngrokExePath:string
+    ngrokExePath:string,
+    // audioFileName: string
   ) {
     this.connectionString= connectionString;
     this.sourcePhoneNumber= sourcePhoneNumber;
@@ -39,10 +43,8 @@ export class CallConfiguration {
     this.timedoutAudio= timedoutAudio,
     this.ngrokExePath=ngrokExePath
     var eventhandler: EventAuthHandler = EventAuthHandler.getInstance();
-    // this.appCallbackUrl =
-    // appBaseUri +
-    //   "/api/outboundcall/callback?" +
-    //   eventhandler.getSecretQuerystring();
-    // this.audioFileUrl = appBaseUrl + "/audio?filename=" + this.audioFileName;
+    this.appCallbackUrl =appBaseUri +eventCallBackRoute;
+    this.audioFileUrl = appBaseUri + "/audio?filename=" + appointmentReminderMenuAudio;
+    // this.audioFileUrl = appBaseUri + "/audio?filename=" + this.audioFileName;
   }
 }

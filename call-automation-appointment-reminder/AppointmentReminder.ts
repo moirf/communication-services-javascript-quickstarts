@@ -23,7 +23,6 @@ import {
   PhoneNumberIdentifier,
 } from "@azure/communication-common";
 import { CloudEvent } from "@azure/eventgrid";
-import { TimeSpan } from "./TimeSpan";
 
 var cfg = require("./config");
 export class AppointmentReminder {
@@ -32,25 +31,13 @@ export class AppointmentReminder {
   callConnection: CreateCallResult;
   callAutomationEventParser: CallAutomationEventParser;
   callAutomationEvent: CallAutomationEvent;
-  userIdentityRegex = new RegExp(
-    "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
-  );
-  phoneIdentityRegex = new RegExp("^\\+\\d{10,14}$");
-  // maxRetryAttemptCount = 0;
-  targetPhoneNumber = null;
-  // participant = null;
-  // retryAttemptCount = 1;
-  toneReceivedEventComplete = false;
-  playAudioTaskCompleted = false;
-  playAudioTaskExecuted = false;
-
   constructor(callConfiguration: CallConfiguration) {
     this.callConfiguration = callConfiguration;
     this.callAutomationClient = new CallAutomationClient(
       callConfiguration.connectionString
     );
   }
-  cloudEvents: CloudEvent<MessageEvent>[];
+//   cloudEvents: CloudEvent<MessageEvent>[];
   public GetAudioForTone(
     toneDetected: DtmfTone,
     callConfiguration: CallConfiguration
@@ -125,7 +112,7 @@ export class AppointmentReminder {
 
       this.callConnection = await this.callAutomationClient.createCall(
         target,
-        this.callConfiguration.appBaseUri,
+        this.callConfiguration.appCallbackUrl,
         createCallOption
       );
 
@@ -136,6 +123,9 @@ export class AppointmentReminder {
           "CallConnection Id : " +
           this.callConnection.callConnectionProperties.callConnectionId
       );
+
+        let cloudEvents:CloudEvent<CallAutomationEvent>[]=[]
+      await this.callbacks(cloudEvents, callConfiguration);
     } catch (e) {
       Logger.logMessage(
         MessageType.ERROR,
@@ -143,14 +133,14 @@ export class AppointmentReminder {
           e.message
       );
     }
-    try {
-      await this.callbacks(this.cloudEvents, callConfiguration);
-    } catch (ex) {}
+    // try {
+    //   await this.callbacks(this.cloudEvents, callConfiguration);
+    // } catch (ex) {}
   }
 
   //api to handle call back events
   public async callbacks(
-    cloudEvents: CloudEvent<MessageEvent>[],
+    cloudEvents: CloudEvent<CallAutomationEvent>[],
     callConfiguration: CallConfiguration
   ) {
     cloudEvents.forEach(async (cloudEvent) => {

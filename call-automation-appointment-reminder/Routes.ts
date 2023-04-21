@@ -8,23 +8,25 @@ var path = require("path");
 
 var routes = function () {
   router.route("/api/call").post(function (req: Request, res: Response) {
-    EventDispatcher.getInstance().processNotification(
-      decodeURIComponent(JSON.stringify(req.body))
-    );
+    // EventDispatcher.getInstance().processNotification(
+    //   decodeURIComponent(JSON.stringify(req.body))
+    // );
+    var param = req.query;
+    var content = JSON.stringify(req.body);
     res.status(200).send("OK");
   });
-  router.route("/api/callbacks").post(function (req, res) {
-    var eventhandler = EventAuthHandler.getInstance();
+  // router.route("/api/callbacks").post(function (req, res) {
+  //   var eventhandler = EventAuthHandler.getInstance();
 
-    // if (secretKey && eventhandler.authorize(secretKey)) {
-    EventDispatcher.getInstance().processNotification(
-      decodeURIComponent(JSON.stringify(req.body))
-    );
-    // }
-    res.status(200).send("OK");
-  });
+  //   // if (secretKey && eventhandler.authorize(secretKey)) {
+  //   EventDispatcher.getInstance().processNotification(
+  //     decodeURIComponent(JSON.stringify(req.body))
+  //   );
+  //   // }
+  //   res.status(200).send("OK");
+  // });
 
-  router.route("/audio").get(function (req, res) {
+  router.route("/audio").get(function (req: Request, res: Response) {
     var fileName = "../audio/" + req.query.filename;
     var filePath = path.join(__dirname, fileName);
     var stat = fileSystem.statSync(filePath);

@@ -1,13 +1,13 @@
 import {
-  KnownCallingServerEventType,
-  CallConnectionStateChangedEvent,
-  ToneReceivedEvent,
-  PlayAudioResultEvent,
-  AddParticipantResultEvent,
+  CallAutomationEvent,AddParticipantResult,PlayOptions,AddParticipantSucceeded , AddParticipantFailed , CallConnected , CallDisconnected , CallTransferAccepted , CallTransferFailed , ParticipantsUpdated , RecordingStateChanged , PlayCompleted , PlayFailed , PlayCanceled , RecognizeCompleted , RecognizeCanceled , RecognizeFailed, CallAutomationEventParser
 } from "@azure/communication-call-automation";
 import { Logger, MessageType } from "../Logger";
 import { NotificationCallback } from "./NotificationCallback";
-
+// KnownCallingServerEventType,
+//   CallConnectionStateChangedEvent,
+//   ToneReceivedEvent,
+//   PlayAudioResultEvent,
+//   AddParticipantResultEvent,
 export class EventDispatcher {
   private static instance: EventDispatcher;
   private notificationCallbacks: Map<string, NotificationCallback>;
@@ -49,77 +49,82 @@ export class EventDispatcher {
     return eventType + "-" + eventKey;
   }
 
-  public async processNotification(request: string) {
-    try {
-      let [callEvent, eventKey] = await this.extractEvent(request);
+  // public async processNotification(request: string) {
+  //   try {
+  //     let [callEvent, eventKey] = await this.extractEvent(request);
 
-      if (callEvent != null) {
-        var notificationCallback: NotificationCallback | undefined =
-          this.notificationCallbacks.get(eventKey.toString());
-        if (notificationCallback != null) {
-          notificationCallback.callback(callEvent);
-        }
-      }
-    } catch (ex) {
-      Logger.logMessage(
-        MessageType.INFORMATION,
-        "Failed to process notification Exception: " + ex.message
-      );
-    }
-  }
+  //     if (callEvent != null) {
+  //       var notificationCallback: NotificationCallback | undefined =
+  //         this.notificationCallbacks.get(eventKey.toString());
+  //       if (notificationCallback != null) {
+  //         notificationCallback.callback(callEvent);
+  //       }
+  //     }
+  //   } catch (ex) {
+  //     Logger.logMessage(
+  //       MessageType.INFORMATION,
+  //       "Failed to process notification Exception: " + ex.message
+  //     );
+  //   }
+  // }
+  // public async extractEvent(content: string) {
+  //   try {
+  //     if (content) {
+  //       var cloudEvent = JSON.parse(content)[0];
+  //       var eventData = cloudEvent.data;
+  //       // var callAutomationEvent:CallAutomationEvent;
 
-  public async extractEvent(content: string) {
-    try {
-      if (content) {
-        var cloudEvent = JSON.parse(content)[0];
-        var eventData = cloudEvent.data;
+  //       if(CallAutomationEvent.AddParticipantResponse==AddParticipantSucceeded){
 
-        if (
-          cloudEvent.type ==
-          KnownCallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT
-        ) {
-          const eventObj: CallConnectionStateChangedEvent = eventData;
-          const eventKey: string = await this.buildEventKey(
-            KnownCallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT,
-            eventObj.callConnectionId
-          );
-          return [eventObj, eventKey];
-        } else if (
-          cloudEvent.type == KnownCallingServerEventType.TONE_RECEIVED_EVENT
-        ) {
-          const eventObj: ToneReceivedEvent = eventData;
-          const eventKey: string = await this.buildEventKey(
-            KnownCallingServerEventType.TONE_RECEIVED_EVENT,
-            eventObj.callConnectionId
-          );
-          return [eventObj, eventKey];
-        } else if (
-          cloudEvent.type == KnownCallingServerEventType.PLAY_AUDIO_RESULT_EVENT
-        ) {
-          const eventObj: PlayAudioResultEvent = eventData;
-          const eventKey: string = await this.buildEventKey(
-            KnownCallingServerEventType.PLAY_AUDIO_RESULT_EVENT,
-            eventObj.operationContext
-          );
-          return [eventObj, eventKey];
-        } else if (
-          cloudEvent.type ==
-          KnownCallingServerEventType.ADD_PARTICIPANT_RESULT_EVENT
-        ) {
-          const eventObj: AddParticipantResultEvent = eventData;
-          const eventKey: string = await this.buildEventKey(
-            KnownCallingServerEventType.ADD_PARTICIPANT_RESULT_EVENT,
-            eventObj.operationContext
-          );
-          return [eventObj, eventKey];
-        }
-      }
-    } catch (ex) {
-      Logger.logMessage(
-        MessageType.INFORMATION,
-        "Failed to parse request content Exception: " + ex.message
-      );
-    }
-    return [null, null];
-  }
+  //       }
+  //       if (
+
+  //         cloudEvent.type ==
+  //         callAutomationEvent.callConnectionState
+  //         // CallAutomationEvent.CALL_CONNECTION_STATE_CHANGED_EVENT
+  //       ) {
+  //         const eventObj: CallConnectionStateChangedEvent = eventData;
+  //         const eventKey: string = await this.buildEventKey(
+  //           KnownCallingServerEventType.CALL_CONNECTION_STATE_CHANGED_EVENT,
+  //           eventObj.callConnectionId
+  //         );
+  //         return [eventObj, eventKey];
+  //       } else if (
+  //         cloudEvent.type == KnownCallingServerEventType.TONE_RECEIVED_EVENT
+  //       ) {
+  //         const eventObj: ToneReceivedEvent = eventData;
+  //         const eventKey: string = await this.buildEventKey(
+  //           KnownCallingServerEventType.TONE_RECEIVED_EVENT,
+  //           eventObj.callConnectionId
+  //         );
+  //         return [eventObj, eventKey];
+  //       } else if (
+  //         cloudEvent.type == KnownCallingServerEventType.PLAY_AUDIO_RESULT_EVENT
+  //       ) {
+  //         const eventObj: PlayOptions = eventData;
+  //         const eventKey: string = await this.buildEventKey(
+  //           callAutomationEvent.kind,
+  //           eventObj.operationContext ? eventObj.operationContext:''
+  //         );
+  //         return [eventObj, eventKey];
+  //       } else if (
+  //         cloudEvent.type ==
+  //         callAutomationEvent.kind
+  //       ) {
+  //         const eventObj: AddParticipantResult = eventData;
+  //         const eventKey: string = await this.buildEventKey(
+  //           callAutomationEvent.kind,
+  //           eventObj.operationContext ? eventObj.operationContext:''
+  //         );
+  //         return [eventObj, eventKey];
+  //       }
+  //     }
+  //   } catch (ex) {
+  //     Logger.logMessage(
+  //       MessageType.INFORMATION,
+  //       "Failed to parse request content Exception: " + ex.message
+  //     );
+  //   }
+  //   return [null, null];
+  // }
 }

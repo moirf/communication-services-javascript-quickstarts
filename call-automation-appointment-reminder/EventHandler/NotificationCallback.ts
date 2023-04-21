@@ -1,3 +1,3 @@
 export interface NotificationCallback {
-  callback(callEvent);
+  callback(callEvent: any);
 }

@@ -128,10 +128,10 @@ export class Program {
       appointmentCancelledAudio,
       invalidInputAudio,
       timedoutAudio,
-      ngrokExePath
+      ngrokExePath,
     );
   }
-
+  
   /// <summary>
   /// Create new user
   /// </summary>
