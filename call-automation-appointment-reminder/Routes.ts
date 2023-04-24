@@ -3,28 +3,33 @@ var router = express.Router();
 import { Request, Response } from "express";
 import { EventAuthHandler } from "./EventHandler/EventAuthHandler";
 import { EventDispatcher } from "./EventHandler/EventDispatcher";
+import { AppointmentReminder } from "./AppointmentReminder";
 var fileSystem = require("fs");
 var path = require("path");
 
 var routes = function () {
-  router.route("/api/call").post(function (req: Request, res: Response) {
+  // router.route("/api/call").post(function (req: Request, res: Response) {
     // EventDispatcher.getInstance().processNotification(
     //   decodeURIComponent(JSON.stringify(req.body))
     // );
-    var param = req.query;
-    var content = JSON.stringify(req.body);
-    res.status(200).send("OK");
-  });
-  // router.route("/api/callbacks").post(function (req, res) {
-  //   var eventhandler = EventAuthHandler.getInstance();
-
-  //   // if (secretKey && eventhandler.authorize(secretKey)) {
-  //   EventDispatcher.getInstance().processNotification(
-  //     decodeURIComponent(JSON.stringify(req.body))
-  //   );
-  //   // }
+  //   var param = req.query;
+  //   var content = JSON.stringify(req.body);
   //   res.status(200).send("OK");
   // });
+  router.route("/api/callbacks").post(function (req:Request, res:Response) {
+    var eventhandler = EventAuthHandler.getInstance();
+
+    // if (secretKey && eventhandler.authorize(secretKey)) {
+    EventDispatcher.getInstance().processNotification(
+      decodeURIComponent(JSON.stringify(req.body))
+    );
+    // }
+  //   var tasks = new Promise((resolve) =>
+    // new AppointmentReminder(req.callConfiguration).callbacks()
+  // );
+  // const results = await Promise.resolve(tasks)
+    res.status(200).send("OK");
+  });
 
   router.route("/audio").get(function (req: Request, res: Response) {
     var fileName = "../audio/" + req.query.filename;

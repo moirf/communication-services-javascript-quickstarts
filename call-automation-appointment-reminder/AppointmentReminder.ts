@@ -1,7 +1,7 @@
 import { MessageType, Logger } from "./Logger";
 import { CallConfiguration } from "./CallConfiguration";
-// import { NotificationCallback } from "./EventHandler/NotificationCallback";
-// import { EventDispatcher } from "./EventHandler/EventDispatcher";
+import { NotificationCallback } from "./EventHandler/NotificationCallback";
+import { EventDispatcher } from "./EventHandler/EventDispatcher";
 import {
   CallAutomationClient,
   CallConnection,
@@ -124,8 +124,11 @@ export class AppointmentReminder {
           this.callConnection.callConnectionProperties.callConnectionId
       );
 
-        let cloudEvents:CloudEvent<CallAutomationEvent>[]=[]
-      await this.callbacks(cloudEvents, callConfiguration);
+      // await this.registerToCallStateChangeEvent(
+      //   this.callConnection.callConnectionProperties.callConnectionId!
+      // );
+      //   let cloudEvents:CloudEvent<CallAutomationEvent>[]=[]
+      // await this.callbacks(cloudEvents, callConfiguration);
     } catch (e) {
       Logger.logMessage(
         MessageType.ERROR,
@@ -137,7 +140,7 @@ export class AppointmentReminder {
     //   await this.callbacks(this.cloudEvents, callConfiguration);
     // } catch (ex) {}
   }
-
+ 
   //api to handle call back events
   public async callbacks(
     cloudEvents: CloudEvent<CallAutomationEvent>[],
