@@ -8,26 +8,15 @@ var fileSystem = require("fs");
 var path = require("path");
 
 var routes = function () {
-  // router.route("/api/call").post(function (req: Request, res: Response) {
-    // EventDispatcher.getInstance().processNotification(
-    //   decodeURIComponent(JSON.stringify(req.body))
-    // );
-  //   var param = req.query;
-  //   var content = JSON.stringify(req.body);
-  //   res.status(200).send("OK");
-  // });
-  router.route("/api/callbacks").post(function (req:Request, res:Response) {
-    var eventhandler = EventAuthHandler.getInstance();
-
-    // if (secretKey && eventhandler.authorize(secretKey)) {
+  router.route("/api/call").post(function (req: Request, res: Response) {
+    var param = req.query;
+    var content = JSON.stringify(req.body);
+    res.status(200).send("OK");
+  });
+  router.route("/api/callbacks").post(function (req: Request, res: Response) {
     EventDispatcher.getInstance().processNotification(
       decodeURIComponent(JSON.stringify(req.body))
     );
-    // }
-  //   var tasks = new Promise((resolve) =>
-    // new AppointmentReminder(req.callConfiguration).callbacks()
-  // );
-  // const results = await Promise.resolve(tasks)
     res.status(200).send("OK");
   });
 

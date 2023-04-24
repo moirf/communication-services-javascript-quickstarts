@@ -1,4 +1,3 @@
-import { NgrokService } from "./Ngrok/NgrokService";
 import { CallConfiguration } from "./CallConfiguration";
 import { CommunicationIdentityClient } from "@azure/communication-identity";
 import { Logger, MessageType } from "./Logger";
@@ -6,15 +5,10 @@ import { CommunicationUserIdentifier } from "@azure/communication-common";
 import { AppointmentReminder } from "./AppointmentReminder";
 import { CallAutomationClient } from "@azure/communication-call-automation";
 var configuration = require("./config");
-// const sdk = require("microsoft-cognitiveservices-speech-sdk");
-// const fs = require("fs");
-
 export class Program {
-  url = "http://localhost:9007";
-  static ngrokService: NgrokService;
-  serverPort = "9007";
+  url = "http://localhost:8080";
+  serverPort = "8080";
   private static instance = new Program();
-
   static getInstance(): Program {
     if (this.instance == null) {
       this.instance = new Program();
@@ -77,28 +71,6 @@ export class Program {
     );
   }
 
-  private static async startNgrokService() {
-    try {
-      var ngrokPath = configuration.NgrokExePath;
-
-      if (!ngrokPath) {
-        console.log("Ngrok path not provided");
-        return null;
-      }
-
-      console.log("Starting Ngrok");
-      this.ngrokService = new NgrokService();
-      await this.ngrokService.ensureNgrokNotRunning(ngrokPath);
-      console.log("Fetching Ngrok Url");
-      const ngrokUrl = await this.ngrokService.getNgrokUrl();
-      console.log("Ngrok Started with url: " + ngrokUrl);
-      return ngrokUrl;
-    } catch (ex) {
-      console.log("Ngrok service got failed : " + ex.message);
-      return null;
-    }
-  }
-
   /// <summary>
   /// Fetch configurations from App Settings and create source identity
   /// </summary>
@@ -128,10 +100,10 @@ export class Program {
       appointmentCancelledAudio,
       invalidInputAudio,
       timedoutAudio,
-      ngrokExePath,
+      ngrokExePath
     );
   }
-  
+
   /// <summary>
   /// Create new user
   /// </summary>
