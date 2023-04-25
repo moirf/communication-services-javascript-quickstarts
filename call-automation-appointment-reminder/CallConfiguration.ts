@@ -1,5 +1,3 @@
-import { EventAuthHandler } from "./EventHandler/EventAuthHandler";
-
 export class CallConfiguration {
   TimedoutAudio: "";
   public connectionString: string;
@@ -42,7 +40,6 @@ export class CallConfiguration {
     this.invalidInputAudio= invalidInputAudio,
     this.timedoutAudio= timedoutAudio,
     this.ngrokExePath=ngrokExePath
-    var eventhandler: EventAuthHandler = EventAuthHandler.getInstance();
     this.appCallbackUrl =appBaseUri +eventCallBackRoute;
     this.audioFileUrl = appBaseUri + "/audio?filename=" + appointmentReminderMenuAudio;
     // this.audioFileUrl = appBaseUri + "/audio?filename=" + this.audioFileName;

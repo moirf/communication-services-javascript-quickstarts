@@ -1,18 +1,15 @@
-import { Program } from "./program";
-import { AppointmentReminder } from "./AppointmentReminder";
-import "./Routes";
+
+import "./program";
 
 var express = require("express"),
   app = express(),
   port = process.env.PORT || 8080;
 var bodyParser = require("body-parser");
-var routes = require("./Routes")();
+var program = require("./Program")();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use("/", routes);
+app.use("/", program);
 
 app.listen(port, async () => {
   console.log(`Listening on port ${port}`);
-  var program = Program.getInstance();
-  program.main();
 });
