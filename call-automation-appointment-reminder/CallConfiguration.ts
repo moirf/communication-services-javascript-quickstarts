@@ -10,7 +10,6 @@ export class CallConfiguration {
   public appointmentCancelledAudio: string;
   public invalidInputAudio: string;
   public timedoutAudio: string;
-  public ngrokExePath:string;
   public appCallbackUrl: string;
   public audioFileUrl: string;
   // public audioFileName: string;
@@ -26,8 +25,6 @@ export class CallConfiguration {
     appointmentCancelledAudio: string,
     invalidInputAudio: string,
     timedoutAudio: string,
-    ngrokExePath:string,
-    // audioFileName: string
   ) {
     this.connectionString= connectionString;
     this.sourcePhoneNumber= sourcePhoneNumber;
@@ -39,7 +36,6 @@ export class CallConfiguration {
     this.appointmentCancelledAudio= appointmentCancelledAudio,
     this.invalidInputAudio= invalidInputAudio,
     this.timedoutAudio= timedoutAudio,
-    this.ngrokExePath=ngrokExePath
     this.appCallbackUrl =appBaseUri +eventCallBackRoute;
     this.audioFileUrl = appBaseUri + "/audio?filename=" + appointmentReminderMenuAudio;
     // this.audioFileUrl = appBaseUri + "/audio?filename=" + this.audioFileName;
