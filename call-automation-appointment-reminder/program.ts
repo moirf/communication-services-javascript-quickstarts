@@ -52,8 +52,11 @@ async function runSample() {
     var sourcePhoneNumber: PhoneNumberIdentifier = {
       phoneNumber: callConfiguration.sourcePhoneNumber,
     };
-    var targetIdentity= targetUserIdentity();
-    var callInviteOptions:CallInvite=(identifierKind == CommunicationIdentifierKind.PhoneIdentity) ? new CallInvite(targetIdentity,sourcePhoneNumber):  callInviteOptions = new CallInvite(targetIdentity);
+    var targetIdentity = targetUserIdentity();
+    var callInviteOptions: CallInvite =
+      identifierKind == CommunicationIdentifierKind.PhoneIdentity
+        ? new CallInvite(targetIdentity, sourcePhoneNumber)
+        : (callInviteOptions = new CallInvite(targetIdentity));
 
     var createCallOptions: CreateCallOptions = {
       sourceCallIdNumber: sourcePhoneNumber,
@@ -107,7 +110,7 @@ async function callbacks(
       var callConnectionMedia = callConnection.getCallMedia();
       // var eventResponse = await event.then((response) => response);
       if (eventType.kind == "CallConnected") {
-        var target=targetUserIdentity()
+        var target = targetUserIdentity();
         //Initiate recognition as call connected event is received
         Logger.logMessage(
           MessageType.INFORMATION,
@@ -261,20 +264,20 @@ function getIdentifierKind(participantnumber: string) {
     ? CommunicationIdentifierKind.PhoneIdentity
     : CommunicationIdentifierKind.UnknownIdentity;
 }
-function targetUserIdentity(){
+function targetUserIdentity() {
   var targetIdentity;
   if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
     var phoneNumber: PhoneNumberIdentifier = {
       phoneNumber: callConfiguration.targetPhoneNumber,
     };
-    targetIdentity=phoneNumber
+    targetIdentity = phoneNumber;
   } else if (identifierKind == CommunicationIdentifierKind.UserIdentity) {
     var communicationUser: CommunicationUserIdentifier = {
       communicationUserId: callConfiguration.targetPhoneNumber,
     };
-    targetIdentity=communicationUser
+    targetIdentity = communicationUser;
   }
-  return targetIdentity
+  return targetIdentity;
 }
 /// <summary>
 /// Create new user
