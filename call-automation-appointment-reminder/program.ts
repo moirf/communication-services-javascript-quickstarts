@@ -1,11 +1,10 @@
 import { CommunicationIdentityClient } from "@azure/communication-identity";
 import {
-  CommunicationIdentifier,
   CommunicationUserIdentifier,
   PhoneNumberIdentifier,
+  isPhoneNumberIdentifier,
 } from "@azure/communication-common";
 import { MessageType, Logger } from "./Logger";
-import { CallConfiguration } from "./CallConfiguration";
 import {
   CallAutomationClient,
   CreateCallOptions,
@@ -29,7 +28,6 @@ var fileSystem = require("fs");
 var path = require("path");
 
 var url = "http://localhost:8080";
-var callConfiguration: CallConfiguration;
 var callAutomationClient: CallAutomationClient;
 var callConnection: CreateCallResult;
 var callAutomationEventParser = new CallAutomationEventParser();
@@ -42,21 +40,21 @@ enum CommunicationIdentifierKind {
   PhoneIdentity,
   UnknownIdentity,
 }
-var appBaseUrl: string = configuration.AppBaseUri;
+
 callAutomationClient = new CallAutomationClient(configuration.ConnectionString);
-callConfiguration = initiateConfiguration(appBaseUrl);
-var identifierKind = getIdentifierKind(configuration.TargetPhoneNumber);
+var identifierKind = getIdentifierKind(configuration.TargetIdentifier);
+var appCallbackUrl =
+  configuration.AppBaseUri + configuration.EventCallBackRoute;
 
 async function runSample() {
   try {
     var sourcePhoneNumber: PhoneNumberIdentifier = {
-      phoneNumber: callConfiguration.sourcePhoneNumber,
+      phoneNumber: configuration.SourcePhoneNumber,
     };
-    var targetIdentity = targetUserIdentity();
-    var callInviteOptions: CallInvite =
-      identifierKind == CommunicationIdentifierKind.PhoneIdentity
-        ? new CallInvite(targetIdentity, sourcePhoneNumber)
-        : (callInviteOptions = new CallInvite(targetIdentity));
+    var targetIdentity = getTargetUserIdentity();
+    var callInviteOptions: CallInvite = isPhoneNumberIdentifier(targetIdentity)
+      ? new CallInvite(targetIdentity, sourcePhoneNumber)
+      : (callInviteOptions = new CallInvite(targetIdentity));
 
     var createCallOptions: CreateCallOptions = {
       sourceCallIdNumber: sourcePhoneNumber,
@@ -70,7 +68,7 @@ async function runSample() {
 
     callConnection = await callAutomationClient.createCall(
       callInviteOptions,
-      callConfiguration.appCallbackUrl,
+      appCallbackUrl,
       createCallOptions
     );
 
@@ -88,11 +86,9 @@ async function runSample() {
     );
   }
 }
+
 //api to handle call back events
-async function callbacks(
-  cloudEvents: CloudEvent<CallAutomationEvent>[],
-  callConfiguration: CallConfiguration
-) {
+async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
   cloudEvents.forEach(async (cloudEvent) => {
     Logger.logMessage(
       MessageType.INFORMATION,
@@ -108,9 +104,7 @@ async function callbacks(
         eventType.callConnectionId
       );
       var callConnectionMedia = callConnection.getCallMedia();
-      // var eventResponse = await event.then((response) => response);
       if (eventType.kind == "CallConnected") {
-        var target = targetUserIdentity();
         //Initiate recognition as call connected event is received
         Logger.logMessage(
           MessageType.INFORMATION,
@@ -118,20 +112,19 @@ async function callbacks(
             eventType.callConnectionId
         );
         playSource.uri =
-          callConfiguration.appBaseUri +
-          callConfiguration.appointmentReminderMenuAudio;
+          configuration.AppBaseUri + configuration.AppointmentReminderMenuAudio;
         playSource.playSourceId = "AppointmentReminderMenu";
-        // var date = Date.now().toString();
         var recognizeOptions: CallMediaRecognizeDtmfOptions = {
           interruptPrompt: true,
           interToneTimeoutInSeconds: 10,
           maxTonesToCollect: 1,
           recognizeInputType: RecognizeInputType.Dtmf,
-          targetParticipant: target,
+          targetParticipant: getTargetUserIdentity(),
           operationContext: "AppointmentReminderMenu",
           playPrompt: playSource,
           initialSilenceTimeoutInSeconds: 5,
         };
+
         //Start recognition
         await callConnectionMedia.startRecognizing(recognizeOptions);
       }
@@ -148,10 +141,8 @@ async function callbacks(
             ? recognizeCompletedEvent?.collectTonesResult?.tones[0]
             : undefined
         ) as DtmfTone;
-        var playSourceForTone = GetAudioForTone(
-          toneDetected,
-          callConfiguration
-        );
+        var playSourceForTone = getAudioForTone(toneDetected);
+
         // Play audio for dtmf response
         await callConnectionMedia.playToAll(playSourceForTone, {
           operationContext: "ResponseToDtmf",
@@ -173,7 +164,7 @@ async function callbacks(
               eventType.callConnectionId
           );
           playSource.uri =
-            callConfiguration.appBaseUri + callConfiguration.TimedoutAudio;
+            configuration.AppBaseUri + configuration.TimedoutAudio;
 
           //Play audio for time out
           await callConnectionMedia.playToAll(playSource, {
@@ -196,66 +187,32 @@ async function callbacks(
           "PlayFailed event received for call connection id: " +
             eventType.callConnectionId
         );
+
         await callConnection.hangUp(true);
       }
     } else {
       return;
     }
   });
-  // return Results.Ok();
 }
-/// <summary>
-/// Fetch configurations from App Settings and create source identity
-/// </summary>
-/// <param name="appBaseUrl">The base url of the app.</param>
-/// <returns>The <c CallConfiguration object.</returns>
-function initiateConfiguration(appBaseUrl: string) {
-  var connectionString = configuration.ConnectionString;
-  var sourcePhoneNumber = configuration.SourcePhoneNumber;
-  var targetPhoneNumber = configuration.TargetPhoneNumber;
-  var appBaseUri = appBaseUrl;
-  var eventCallBackRoute = configuration.EventCallBackRoute;
-  var appointmentReminderMenuAudio = configuration.AppointmentReminderMenuAudio;
-  var appointmentConfirmedAudio = configuration.AppointmentConfirmedAudio;
-  var appointmentCancelledAudio = configuration.AppointmentCancelledAudio;
-  var invalidInputAudio = configuration.InvalidInputAudio;
-  var timedoutAudio = configuration.TimedoutAudio;
-  return new CallConfiguration(
-    connectionString,
-    sourcePhoneNumber,
-    targetPhoneNumber,
-    appBaseUri,
-    eventCallBackRoute,
-    appointmentReminderMenuAudio,
-    appointmentConfirmedAudio,
-    appointmentCancelledAudio,
-    invalidInputAudio,
-    timedoutAudio
-  );
-}
-function GetAudioForTone(
-  toneDetected: DtmfTone,
-  callConfigurationForTone: CallConfiguration
-) {
+
+function getAudioForTone(toneDetected: DtmfTone) {
   let playSource: FileSource = { uri: "" };
 
   if (toneDetected == DtmfTone.One) {
     playSource.uri =
-      callConfigurationForTone.appBaseUri +
-      callConfigurationForTone.appointmentConfirmedAudio;
+      configuration.AppBaseUri + configuration.AppointmentConfirmedAudio;
   } else if (toneDetected == DtmfTone.Two) {
     playSource.uri =
-      callConfigurationForTone.appBaseUri +
-      callConfigurationForTone.appointmentCancelledAudio;
+      configuration.AppBaseUri + configuration.AppointmentCancelledAudio;
   } // Invalid Dtmf tone
   else {
-    playSource.uri =
-      callConfigurationForTone.appBaseUri +
-      callConfigurationForTone.invalidInputAudio;
+    playSource.uri = configuration.AppBaseUri + configuration.InvalidInputAudio;
   }
 
   return playSource;
 }
+
 function getIdentifierKind(participantnumber: string) {
   // checks the identity type returns as string
   return userIdentityRegex.test(participantnumber)
@@ -264,21 +221,25 @@ function getIdentifierKind(participantnumber: string) {
     ? CommunicationIdentifierKind.PhoneIdentity
     : CommunicationIdentifierKind.UnknownIdentity;
 }
-function targetUserIdentity() {
+
+function getTargetUserIdentity() {
   var targetIdentity;
+
   if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
     var phoneNumber: PhoneNumberIdentifier = {
-      phoneNumber: callConfiguration.targetPhoneNumber,
+      phoneNumber: configuration.TargetIdentifier,
     };
     targetIdentity = phoneNumber;
   } else if (identifierKind == CommunicationIdentifierKind.UserIdentity) {
     var communicationUser: CommunicationUserIdentifier = {
-      communicationUserId: callConfiguration.targetPhoneNumber,
+      communicationUserId: configuration.TargetIdentifier,
     };
     targetIdentity = communicationUser;
   }
+
   return targetIdentity;
 }
+
 /// <summary>
 /// Create new user
 /// </summary>
@@ -324,9 +285,10 @@ var program = function () {
     );
     res.status(200).send("OK");
   });
+
   router.route("/api/callbacks").post(function (req: Request, res: Response) {
     console.log("req.body \n" + req.body);
-    callbacks(req.body, callConfiguration);
+    callbacks(req.body);
     res.status(200).send("OK");
   });
 
@@ -339,7 +301,6 @@ var program = function () {
       "Content-Type": "audio/x-wav",
       "Content-Length": stat.size,
     });
-
     var readStream = fileSystem.createReadStream(filePath);
     // We replaced all the event handlers with a simple call to readStream.pipe()
     readStream.pipe(res);

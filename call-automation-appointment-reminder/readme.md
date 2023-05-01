@@ -1,6 +1,6 @@
 ﻿|page_type|languages|products
 |---|---|---|
-|sample|<table><tr><td>csharp</tr></td></table>|<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
+|sample|<table><tr><td>javascript</tr></td></table>|<table><tr><td>azure</td><td>azure-communication-services</td></tr></table>|
 
 # Call Automation - Appointment Reminder Sample
 
@@ -36,15 +36,16 @@ This sample application is also capable of making multiple concurrent outbound c
 
 	- ConnectionString: Azure Communication Service resource's connection string.
 	- SourcePhoneNumber: Phone number associated with the Azure Communication Service resource.For e.g. "+1425XXXAAAA"
-	- TargetPhoneNumber: Target phone number to add in the call. For e.g. "+1425XXXAAAA" or "8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000018-5d49-93c5-f883-084822004dc5"
+	- TargetIdentifier: Target phone number or communication user identifier to add in the call. For e.g. "+1425XXXAAAA" or "8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000018-5d49-93c5-f883-084822004dc5" (Communication user identifier can be generated from the url :https://acs-sample-app.azurewebsites.net/)
 	- AppBaseUri: Base url of the app. (For local devlopment replace the Ngrok url.For e.g. "https://95b6-43-230-212-228.ngrok-free.app")
 
 ### Run the Application
 
-- Add azure communication callingserver's tgz file path in package.json
 - Navigate to the directory containing the package.json file and use the following commands for installing all the dependencies:
 	- npm install
 - To run the sample, first run:
 	- tsc .\server.ts
 - This will generate server.js file, then run:
-	- node .\server.js
+	- node .\server.js or npm run start
+- Trigger API call using postman
+	- http Get Request url: {AppBaseUri}/api/call

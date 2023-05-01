@@ -2,7 +2,7 @@ export class CallConfiguration {
   TimedoutAudio: "";
   public connectionString: string;
   public sourcePhoneNumber: string;
-  public targetPhoneNumber: string;
+  public targetIdentifier: string;
   public appBaseUri: string;
   public eventCallBackRoute: string;
   public appointmentReminderMenuAudio: string;
@@ -17,7 +17,7 @@ export class CallConfiguration {
   constructor(
     connectionString: string,
     sourcePhoneNumber: string,
-    targetPhoneNumber: string,
+    targetIdentifier: string,
     appBaseUri: string,
     eventCallBackRoute: string,
     appointmentReminderMenuAudio: string,
@@ -28,7 +28,7 @@ export class CallConfiguration {
   ) {
     this.connectionString= connectionString;
     this.sourcePhoneNumber= sourcePhoneNumber;
-    this.targetPhoneNumber= targetPhoneNumber
+    this.targetIdentifier= targetIdentifier
     this.appBaseUri= appBaseUri,
     this.eventCallBackRoute= eventCallBackRoute,
     this.appointmentReminderMenuAudio= appointmentReminderMenuAudio,
@@ -38,6 +38,5 @@ export class CallConfiguration {
     this.timedoutAudio= timedoutAudio,
     this.appCallbackUrl =appBaseUri +eventCallBackRoute;
     this.audioFileUrl = appBaseUri + "/audio?filename=" + appointmentReminderMenuAudio;
-    // this.audioFileUrl = appBaseUri + "/audio?filename=" + this.audioFileName;
   }
 }
