@@ -51,7 +51,7 @@ if (typeof baseUri!='undefined')
 {
     baseUri = configuration.BaseUri;
 }
-async function incomingCall(eventGridEvents:EventGridEvent<CallAutomationEvent>[],logger:Logger){
+async function incomingCall(eventGridEvents:EventGridEvent<>[],logger:Logger){
     eventGridEvents.forEach(async (eventGridEvent) => {
         {
             Logger.logMessage(
@@ -59,10 +59,10 @@ async function incomingCall(eventGridEvents:EventGridEvent<CallAutomationEvent>[
                 "Incoming Call event received " + JSON.stringify(eventGridEvent)
               );
             // Handle system events
-            if (eventGridEvent.TryGetSystemEventData(eventData))
+            if (eventGridEvent.data)
             {
                 // Handle the subscription validation event.
-                if (eventData is SubscriptionValidationEventData subscriptionValidationEventData)
+                if (eventGridEvent.data== SubscriptionValidationEventData subscriptionValidationEventData)
                 {
                     var responseData = new SubscriptionValidationResponse
                     {
