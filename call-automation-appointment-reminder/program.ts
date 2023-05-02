@@ -267,9 +267,7 @@ var program = function () {
     try {
       if (ngrokUrl) {
         Logger.logMessage(MessageType.INFORMATION, "Server started at:" + url);
-        // await runSample();
         var task = new Promise((resolve) => runSample());
-        // const results = await Promise.resolve(task);
       } else {
         Logger.logMessage(MessageType.ERROR, "Failed to start Ngrok service");
       }
