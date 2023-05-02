@@ -18,194 +18,274 @@ import {
   RecognizeCompleted,
   FileSource,
   CallInvite,
+  CallConnectionProperties,
+  AnswerCallResult,
+  PlayOptions
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
-import {EventGridEvent} from "@azure/eventgrid";
+import {EventGridEvent,KnownSystemEventTypes,SubscriptionValidationEventData,SystemEventNameToEventData,CloudEvent} from "@azure/eventgrid";
 var configuration = require("./config");
 var express = require("express");
 var router = express.Router();
 var fileSystem = require("fs");
 var path = require("path");
 
-// using Azure.Communication;
-// using Azure.Communication.CallAutomation;
-// using Azure.Messaging;
-// using Azure.Messaging.EventGrid;
-// using Azure.Messaging.EventGrid.SystemEvents;
-// using Microsoft.AspNetCore.Mvc;
-// using Microsoft.Extensions.FileProviders;
-// using Newtonsoft.Json;
-// using System.ComponentModel.DataAnnotations;
-// using System.Text.Json.Nodes;
-
-// var builder = WebApplication.CreateBuilder(args);
-
-// builder.Services.AddControllers();
-// builder.Services.AddEndpointsApiExplorer();
-// builder.Services.AddSwaggerGen();
-
-var client = new CallAutomationClient(configuration.ConnectionString);
-// var baseUri = process.env.VS_TUNNEL_URL.trimEnd();
+var url = "http://localhost:8080";
+var playSource: FileSource = { uri: "" };
+var callAutomationEventParser:CallAutomationEventParser;
+var callInvite:CallInvite;
 var baseUri = configuration.BaseUri;
 if (typeof baseUri!='undefined')
 {
     baseUri = configuration.BaseUri;
 }
-async function incomingCall(eventGridEvents:EventGridEvent<>[],logger:Logger){
-    eventGridEvents.forEach(async (eventGridEvent) => {
-        {
-            Logger.logMessage(
-                MessageType.INFORMATION,
-                "Incoming Call event received " + JSON.stringify(eventGridEvent)
-              );
-            // Handle system events
-            if (eventGridEvent.data)
+var userIdentityRegex = new RegExp(
+    "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
+  );
+  var phoneIdentityRegex = new RegExp("^\\+\\d{10,14}$");
+enum CommunicationIdentifierKind {
+    UserIdentity,
+    PhoneIdentity,
+    UnknownIdentity,
+  }
+var identifierKind = getIdentifierKind(configuration.TargetIdentifier);
+var client = new CallAutomationClient(configuration.ConnectionString);
+
+async function runSample(req:Request) { 
+
+     try{
+        var eventGridEvents:EventGridEvent<>[]=req.body.eventGridEvents;
+        var subscriptionValidationEventData:SubscriptionValidationEventData;
+        eventGridEvents.forEach(async (eventGridEvent) => {
             {
-                // Handle the subscription validation event.
-                if (eventGridEvent.data== SubscriptionValidationEventData subscriptionValidationEventData)
+                Logger.logMessage(
+                    MessageType.INFORMATION,
+                    "Incoming Call event received " + JSON.stringify(eventGridEvent)
+                  );
+                  subscriptionValidationEventData=eventGridEvent.Data;
+                // Handle system events
+                if (eventGridEvent.isSystemEvent(eventGridEvent.eventType, eventGridEvent))
                 {
-                    var responseData = new SubscriptionValidationResponse
+                //     var requestDocument = new JsonDocument().Parse(eventGridEvent.Data.ToMemory());
+                // eventData = SystemEventExtensions.AsSystemEventData(EventType, requestDocument.RootElement);
+                // return eventData != null;
+                    // Handle the subscription validation event.
+                    if (eventGridEvent.eventType  == "Microsoft.EventGrid.SubscriptionValidationEvent")
                     {
-                        ValidationResponse = subscriptionValidationEventData.ValidationCode
-                    };
-                    return Results.Ok(responseData);
+                        var responseData ={
+                            validationResponse : subscriptionValidationEventData.validationCode
+                        };
+                        return responseData;
+                    }
                 }
+                // var jsonObject = callAutomationEventParser.parse();
+                var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
+                var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
+                var callbackUri = baseUri + '/api/calls?callerId='+ callerId;
+        
+                var answerCallResult:AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
             }
-            var jsonObject = JsonNode.Parse(eventGridEvent.Data).AsObject();
-            var callerId = (string)(jsonObject["from"]["rawId"]);
-            var incomingCallContext = (string)jsonObject["incomingCallContext"];
-            var callbackUri = new Uri(baseUri + $"/api/calls/{Guid.NewGuid()}?callerId={callerId}");
-    
-            AnswerCallResult answerCallResult = await client.AnswerCallAsync(incomingCallContext, callbackUri);
-        }
-    })
-    
-    return Results.Ok();
-}
-// var app = builder.Build();
-router.route("/api/incomingCall").post(function (req: Request, res: Response){
-    incomingCall()
-})
+        })
+     }catch(ex){
+        Logger.logMessage(
+            MessageType.ERROR,
+            "Failed to initiate the call Exception -- > " + ex.getMessage()
+          );
+     }                          
 
-app.MapPost("/api/calls/{contextId}", async (
-    [FromBody] CloudEvent[] cloudEvents,
-    [FromRoute] string contextId,
-    [Required] string callerId,
-    ILogger<Program> logger) =>
-{
-    var audioPlayOptions = new PlayOptions() { OperationContext = "SimpleIVR", Loop = false };
+  }
+  
+  //api to handle call back events
+async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
 
-    foreach (var cloudEvent in cloudEvents)
-    {
-        CallAutomationEventBase @event = CallAutomationEventParser.Parse(cloudEvent);
-        logger.LogInformation($"Event received: {JsonConvert.SerializeObject(@event)}");
-
-        var callConnection = client.GetCallConnection(@event.CallConnectionId);
-        var callMedia = callConnection?.GetCallMedia();
-
-        if (callConnection == null || callMedia == null)
-        {
-            return Results.BadRequest($"Call objects failed to get for connection id {@event.CallConnectionId}.");
-        }
-
-        if (@event is CallConnected)
+    var audioPlayOptions:PlayOptions ={loop :false , operationContext :"SimpleIVR"};
+    try{
+    cloudEvents.forEach(async (cloudEvent) => {
+        var eventType = await callAutomationEventParser.parse(JSON.stringify(cloudEvent));
+        Logger.logMessage(
+            MessageType.INFORMATION,"Event received: "+JSON.stringify(eventType));
+        if (eventType?.callConnectionId) {
+            var callConnection = client.getCallConnection(eventType.callConnectionId);
+        var callMedia = callConnection?.getCallMedia();
+        if (eventType.kind == "CallConnected")
         {
             // Start recognize prompt - play audio and recognize 1-digit DTMF input
-            var recognizeOptions =
-                new CallMediaRecognizeDtmfOptions(CommunicationIdentifier.FromRawId(callerId), maxTonesToCollect: 1)
-                {
-                    InterruptPrompt = true,
-                    InterToneTimeout = TimeSpan.FromSeconds(10),
-                    InitialSilenceTimeout = TimeSpan.FromSeconds(5),
-                    Prompt = new FileSource(new Uri(baseUri + builder.Configuration["MainMenuAudio"])),
-                    OperationContext = "MainMenu"
-                };
-            await callMedia.StartRecognizingAsync(recognizeOptions);
+            Logger.logMessage(
+                MessageType.INFORMATION,
+                "CallConnected event received for call connection id: " +
+                  eventType.callConnectionId
+            );
+              playSource.uri =configuration.AppBaseUri + configuration.MainMenuAudio;
+              playSource.playSourceId = "AppointmentReminderMenu";
+              var recognizeOptions:CallMediaRecognizeDtmfOptions={
+                interruptPrompt: true,
+                interToneTimeoutInSeconds: 10,
+                maxTonesToCollect: 1,
+                recognizeInputType: RecognizeInputType.Dtmf,
+                targetParticipant: undefined,
+                operationContext: "MainMenu",
+                playPrompt: playSource,
+                initialSilenceTimeoutInSeconds: 5
+              };
+      
+              //Start recognition
+              await callMedia.startRecognizing(recognizeOptions);
         }
-        if (@event is RecognizeCompleted { OperationContext: "MainMenu" })
+        if (eventType.kind=="RecognizeCompleted" && eventType.operationContext == 'MainMenu')
         {
-            var recognizeCompleted = (RecognizeCompleted)@event;
-
-            if (recognizeCompleted.CollectTonesResult.Tones[0] == DtmfTone.One)
+            var recognizeCompleted = eventType;
+            var toneDetected=recognizeCompleted.collectTonesResult.tones[0];
+            if (toneDetected== DtmfTone.One)
             {
-                PlaySource salesAudio = new FileSource(new Uri(baseUri + builder.Configuration["SalesAudio"]));
-                await callMedia.PlayToAllAsync(salesAudio, audioPlayOptions);
+                playSource.uri=baseUri+configuration.SalesAudio;
+                var salesAudio = playSource;
+                await callMedia.playToAll(salesAudio, audioPlayOptions);
             }
-            else if (recognizeCompleted.CollectTonesResult.Tones[0] == DtmfTone.Two)
+            else if (toneDetected == DtmfTone.Two)
             {
-                PlaySource marketingAudio = new FileSource(new Uri(baseUri + builder.Configuration["MarketingAudio"]));
-                await callMedia.PlayToAllAsync(marketingAudio, audioPlayOptions);
+                playSource.uri=baseUri+configuration.MarketingAudio;
+                var marketingAudio = playSource;
+                await callMedia.playToAll(marketingAudio, audioPlayOptions);
             }
-            else if (recognizeCompleted.CollectTonesResult.Tones[0] == DtmfTone.Three)
+            else if (toneDetected == DtmfTone.Three)
             {
-                PlaySource customerCareAudio = new FileSource(new Uri(baseUri + builder.Configuration["CustomerCareAudio"]));
-                await callMedia.PlayToAllAsync(customerCareAudio, audioPlayOptions);
+                playSource.uri=baseUri+configuration.CustomerCareAudio;
+                var customerCareAudio = playSource;
+                await callMedia.playToAll(customerCareAudio, audioPlayOptions);
             }
-            else if (recognizeCompleted.CollectTonesResult.Tones[0] == DtmfTone.Four)
+            else if (toneDetected == DtmfTone.Four)
             {
-                PlaySource agentAudio = new FileSource(new Uri(baseUri + builder.Configuration["AgentAudio"]));
-                audioPlayOptions.OperationContext = "AgentConnect";
-                await callMedia.PlayToAllAsync(agentAudio, audioPlayOptions);
+                playSource.uri=baseUri+configuration.AgentAudio;
+                var agentAudio = playSource;
+                audioPlayOptions.operationContext = "AgentConnect";
+                await callMedia.playToAll(agentAudio, audioPlayOptions);
             }
-            else if (recognizeCompleted.CollectTonesResult.Tones[0] == DtmfTone.Five)
+            else if (toneDetected == DtmfTone.Five)
             {
                 // Hangup for everyone
-                await callConnection.HangUpAsync(true);
+                await callConnection.hangUp(true);
             }
             else
             {
-                PlaySource invalidAudio = new FileSource(new Uri(baseUri + builder.Configuration["InvalidAudio"]));
-                await callMedia.PlayToAllAsync(invalidAudio, audioPlayOptions);
+                playSource.uri=baseUri+configuration.InvalidAudio;
+                var invalidAudio = playSource;
+                await callMedia.playToAll(invalidAudio, audioPlayOptions);
             }
         }
-        if (@event is RecognizeFailed { OperationContext: "MainMenu" })
+        if (eventType.kind=="RecognizeFailed" && eventType.operationContext == 'MainMenu')
         {
+            playSource.uri=baseUri+configuration.InvalidAudio;
             // play invalid audio
-            await callMedia.PlayToAllAsync(new FileSource(new Uri(baseUri + builder.Configuration["InvalidAudio"])), audioPlayOptions);
+            await callMedia.playToAll(playSource, audioPlayOptions);
         }
-        if (@event is PlayCompleted)
+        if (eventType.kind=="PlayCompleted")
         {
-            if (@event.OperationContext == "AgentConnect")
+            if (eventType.operationContext == "AgentConnect")
             {
-                var addParticipantOptions = new AddParticipantsOptions(new List<CommunicationIdentifier>()
-                {
-                    new PhoneNumberIdentifier(builder.Configuration["ParticipantToAdd"])
-                });
+                // var addParticipantOptions = new AddParticipantsOptions(new List<CommunicationIdentifier>()
+                // {
+                //     new PhoneNumberIdentifier(builder.Configuration["ParticipantToAdd"])
+                // });
+                var sourceCallerId:PhoneNumberIdentifier = {
+                    phoneNumber: configuration.ACSAlternatePhoneNumber,
+                  }
+                var participantToAdd=configuration.ParticipantToAdd;
+                if(participantToAdd){
+                 if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
+                    var phoneNumber: PhoneNumberIdentifier = {
+                      phoneNumber: configuration.TargetIdentifier,
+                    };
+                    callInvite=new CallInvite(phoneNumber,sourceCallerId)
+                  } else if (identifierKind == CommunicationIdentifierKind.UserIdentity) {
+                    var communicationUser: CommunicationUserIdentifier = {
+                      communicationUserId: configuration.TargetIdentifier,
+                    };
+                    callInvite=new CallInvite(communicationUser)
+                  }
 
-                addParticipantOptions.SourceCallerId = new PhoneNumberIdentifier(builder.Configuration["ACSAlternatePhoneNumber"]);
-                await callConnection.AddParticipantsAsync(addParticipantOptions);
+                Logger.logMessage(MessageType.INFORMATION,'Performing add Participant operation')
+                var addParticipantResponse=await callConnection.addParticipant(callInvite);
+                Logger.logMessage(MessageType.INFORMATION, 'Call initiated with Call Leg id -- >' + addParticipantResponse.participant)
+                }
             }
-            if (@event.OperationContext == "SimpleIVR")
+            if (eventType.operationContext == "SimpleIVR")
             {
-                await callConnection.HangUpAsync(true);
+                await callConnection.hangUp(true);
             }
         }
-        if (@event is PlayFailed)
+        if (eventType.kind=="PlayFailed")
         {
-            logger.LogInformation($"PlayFailed Event: {JsonConvert.SerializeObject(@event)}");
-            await callConnection.HangUpAsync(true);
+            Logger.logMessage(MessageType.INFORMATION,"PlayFailed Event: "+JSON.stringify(eventType));
+            await callConnection.hangUp(true);
         }
+        }
+    
+    });
+
+    }catch(ex){
+
     }
-    return Results.Ok();
-}).Produces(StatusCodes.Status200OK);
+  }
 
+  function getIdentifierKind(participantnumber: string) {
+    // checks the identity type returns as string
+    return userIdentityRegex.test(participantnumber)
+      ? CommunicationIdentifierKind.UserIdentity
+      : phoneIdentityRegex.test(participantnumber)
+      ? CommunicationIdentifierKind.PhoneIdentity
+      : CommunicationIdentifierKind.UnknownIdentity;
+  }
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+var program = function () {
+    // Api to initiate call
+    router.route("/api/incomingCall").post(async function (req: Request, res: Response) {
+      Logger.logMessage(MessageType.INFORMATION, "Starting ACS Sample App");
+      try {
+        if (baseUri) {
+        //   Logger.logMessage(MessageType.INFORMATION, "Server started at:" + url);
+          var task = new Promise((resolve) => runSample(req));
+        } else {
+          Logger.logMessage(MessageType.ERROR, "Failed to start Ngrok service");
+        }
+      } catch (ex) {
+        Logger.logMessage(MessageType.ERROR,ex.message);
+      }
+      Logger.logMessage(MessageType.INFORMATION,"Press 'Ctrl + C' to exit the sample");
+      res.status(200).send("OK");
+    });
+  
+    router.route("/api/calls/{contextId}").post(function (req: Request, res: Response) {
+      console.log("req.body \n" + req.body);
+      callbacks(req.body);
+      res.status(200).send("OK");
+    });
+  
+    router.route("/audio").get(function (req: Request, res: Response) {
+      var fileName = "/audio/" + req.query.filename;
+      var filePath = path.join(__dirname, fileName);
+      var stat = fileSystem.statSync(filePath);
+  
+      res.writeHead(200, {
+        "Content-Type": "audio/x-wav",
+        "Content-Length": stat.size,
+      });
+      var readStream = fileSystem.createReadStream(filePath);
+      // We replaced all the event handlers with a simple call to readStream.pipe()
+      readStream.pipe(res);
+    });
+  
+    return router;
+  };
+  module.exports = program;
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new PhysicalFileProvider(
-           Path.Combine(builder.Environment.ContentRootPath, "audio")),
-    RequestPath = "/audio"
+var express = require("express"),
+  app = express(),
+  port = process.env.PORT || 8080;
+var bodyParser = require("body-parser");
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(program);
+
+app.listen(port, async () => {
+  console.log(`Listening on port ${port}`);
 });
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
