@@ -63,34 +63,7 @@ async function runSample(req:Request,res:Response) {
       MessageType.INFORMATION,
       "Request data ---- >" + JSON.stringify(req.body)
     );
-  //   let data = req.body;
-  //   const deserializedData=
-  //   await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
-  // const eventGridEvent = deserializedData[0];
-
-    // const deserializedData:EventGridEvent<>[] =await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
-    // const eventGridEvent = deserializedData[0];
-    // const eventGridEvents:EventGridEvent<SubscriptionValidationEventData>[]=req.body;
     var eventGridEvent=(req.body)[0]
-    var eventData:BinaryData = eventGridEvent.getData();
-    Logger.logMessage(
-      MessageType.INFORMATION, "SubscriptionValidationEvent response --> \n" + eventData.toString());
-
-    // if (eventGridEvent.eventType == "Microsoft.EventGrid.SubscriptionValidationEvent")
-    // {
-    //     try {
-    //         var subscriptionValidationEvent:SubscriptionValidationEventData = Object(eventData).SubscriptionValidationEvent;
-    //         var responseData = new SubscriptionValidationResponse();
-    //         responseData.setValidationResponse(subscriptionValidationEvent.getValidationCode());
-
-    //         return new ResponseEntity<>(responseData, HttpStatus.OK);
-    //     } catch (Exception e){
-    //         e.printStackTrace();
-    //         return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
-    //     }
-    // }
-
-
     var subscriptionValidationEventData:SubscriptionValidationEventData;
     // eventGridEvents.forEach(async (eventGridEvent) => {
         Logger.logMessage(
@@ -100,10 +73,12 @@ async function runSample(req:Request,res:Response) {
             // subscriptionValidationEventData=eventGridEvent.data;
               if (eventGridEvent.eventType  == "Microsoft.EventGrid.SubscriptionValidationEvent")
               {
+                if(eventGridEvent.data.validationCode){
                   var responseData ={
                       validationResponse : eventGridEvent.data.validationCode
                   };
                   return res.status(200).json(responseData);
+                }
               }
           var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
           var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
