@@ -18,6 +18,11 @@ This sample application is also capable of making multiple concurrent outbound c
 - Create an Azure Communication Services resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). You'll need to record your resource **connection string** for this sample.
 - Get a phone number for your new Azure Communication Services resource. For details, see [Get a phone number](https://docs.microsoft.com/azure/communication-services/quickstarts/telephony-sms/get-phone-number?pivots=platform-azp)
 - Download and install [Ngrok](https://www.ngrok.com/download). As the sample is run locally, Ngrok will enable the receiving of all the events.
+- Generate Ngrok Url by using below steps
+	- Open command prompt or powershell window on the machine using to run the sample.
+	- Navigate to directory path where Ngrok.exe file is located. Then, run:
+		- ngrok http {portNumber} (For e.g. ngrok http 8080)
+	- Get Ngrok Url generated. Ngrok Url will be in the form of e.g.  "https://95b6-43-230-212-228.ngrok-free.app"
 
 ### Prerequisite check
 - In a terminal or command window, run `node --version` to check that Node.js is installed.

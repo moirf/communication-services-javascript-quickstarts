@@ -30,6 +30,7 @@ var path = require("path");
 var url = "http://localhost:8080";
 var callAutomationClient: CallAutomationClient;
 var callConnection: CreateCallResult;
+var callInviteOptions: CallInvite;
 var callAutomationEventParser = new CallAutomationEventParser();
 var userIdentityRegex = new RegExp(
   "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
@@ -42,7 +43,8 @@ enum CommunicationIdentifierKind {
 }
 
 callAutomationClient = new CallAutomationClient(configuration.ConnectionString);
-var identifierKind = getIdentifierKind(configuration.TargetIdentifier);
+var identifierKind;
+var targetParticipant: CommunicationUserIdentifier | PhoneNumberIdentifier;
 var appCallbackUrl =
   configuration.AppBaseUri + configuration.EventCallBackRoute;
 
@@ -51,34 +53,48 @@ async function runSample() {
     var sourcePhoneNumber: PhoneNumberIdentifier = {
       phoneNumber: configuration.SourcePhoneNumber,
     };
-    var targetIdentity = getTargetUserIdentity();
-    var callInviteOptions: CallInvite = isPhoneNumberIdentifier(targetIdentity)
-      ? new CallInvite(targetIdentity, sourcePhoneNumber)
-      : (callInviteOptions = new CallInvite(targetIdentity));
+    var targetIds = configuration.TargetIdentifier;
+    var targetIdentities = targetIds.split(";");
+    targetIdentities.forEach(async (targetId: any) => {
+      identifierKind = getIdentifierKind(targetId);
+      if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
+        var phoneNumber: PhoneNumberIdentifier = {
+          phoneNumber: targetId,
+        };
+        targetParticipant = phoneNumber;
+        callInviteOptions = new CallInvite(phoneNumber, sourcePhoneNumber);
+      } else if (identifierKind == CommunicationIdentifierKind.UserIdentity) {
+        var communicationUser: CommunicationUserIdentifier = {
+          communicationUserId: targetId,
+        };
+        targetParticipant = communicationUser;
+        callInviteOptions = new CallInvite(communicationUser);
+      }
 
-    var createCallOptions: CreateCallOptions = {
-      sourceCallIdNumber: sourcePhoneNumber,
-      sourceDisplayName: "Reminder App",
-    };
+      var createCallOptions: CreateCallOptions = {
+        sourceCallIdNumber: sourcePhoneNumber,
+        sourceDisplayName: "Reminder App",
+      };
 
-    Logger.logMessage(
-      MessageType.INFORMATION,
-      "Performing CreateCall operation"
-    );
+      Logger.logMessage(
+        MessageType.INFORMATION,
+        "Performing CreateCall operation"
+      );
 
-    callConnection = await callAutomationClient.createCall(
-      callInviteOptions,
-      appCallbackUrl,
-      createCallOptions
-    );
+      callConnection = await callAutomationClient.createCall(
+        callInviteOptions,
+        appCallbackUrl,
+        createCallOptions
+      );
 
-    Logger.logMessage(
-      MessageType.INFORMATION,
-      "Reponse from create call: " +
-        callConnection.callConnectionProperties.callConnectionState +
-        "CallConnection Id : " +
-        callConnection.callConnectionProperties.callConnectionId
-    );
+      Logger.logMessage(
+        MessageType.INFORMATION,
+        "Reponse from create call: " +
+          callConnection.callConnectionProperties.callConnectionState +
+          "CallConnection Id : " +
+          callConnection.callConnectionProperties.callConnectionId
+      );
+    });
   } catch (ex) {
     Logger.logMessage(
       MessageType.ERROR,
@@ -119,7 +135,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
           interToneTimeoutInSeconds: 10,
           maxTonesToCollect: 1,
           recognizeInputType: RecognizeInputType.Dtmf,
-          targetParticipant: getTargetUserIdentity(),
+          targetParticipant: targetParticipant,
           operationContext: "AppointmentReminderMenu",
           playPrompt: playSource,
           initialSilenceTimeoutInSeconds: 5,
@@ -220,24 +236,6 @@ function getIdentifierKind(participantnumber: string) {
     : phoneIdentityRegex.test(participantnumber)
     ? CommunicationIdentifierKind.PhoneIdentity
     : CommunicationIdentifierKind.UnknownIdentity;
-}
-
-function getTargetUserIdentity() {
-  var targetIdentity;
-
-  if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
-    var phoneNumber: PhoneNumberIdentifier = {
-      phoneNumber: configuration.TargetIdentifier,
-    };
-    targetIdentity = phoneNumber;
-  } else if (identifierKind == CommunicationIdentifierKind.UserIdentity) {
-    var communicationUser: CommunicationUserIdentifier = {
-      communicationUserId: configuration.TargetIdentifier,
-    };
-    targetIdentity = communicationUser;
-  }
-
-  return targetIdentity;
 }
 
 /// <summary>
