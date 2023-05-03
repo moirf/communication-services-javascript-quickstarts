@@ -23,7 +23,10 @@ import {
   PlayOptions
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
-import {EventGridEvent,KnownSystemEventTypes,SubscriptionValidationEventData,SystemEventNameToEventData,CloudEvent} from "@azure/eventgrid";
+import {EventGridEvent,KnownSystemEventTypes,SubscriptionValidationEventData,SystemEventNameToEventData,CloudEvent, EventGridDeserializer, CommunicationIdentifierModel} from "@azure/eventgrid";
+import { promises } from "dns";
+import { ClientRequest } from "http";
+
 var configuration = require("./config");
 var express = require("express");
 var router = express.Router();
@@ -35,10 +38,10 @@ var playSource: FileSource = { uri: "" };
 var callAutomationEventParser:CallAutomationEventParser;
 var callInvite:CallInvite;
 var baseUri = configuration.BaseUri;
-if (typeof baseUri!='undefined')
-{
-    baseUri = configuration.BaseUri;
-}
+// if (typeof baseUri!='undefined')
+// {
+//     baseUri = configuration.BaseUri;
+// }
 var userIdentityRegex = new RegExp(
     "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
   );
@@ -50,49 +53,71 @@ enum CommunicationIdentifierKind {
   }
 var identifierKind = getIdentifierKind(configuration.TargetIdentifier);
 var client = new CallAutomationClient(configuration.ConnectionString);
+var sourceCallerId:PhoneNumberIdentifier = {
+  phoneNumber: configuration.ACSAlternatePhoneNumber,
+}
+async function runSample(req:Request,res:Response) { 
+    try {
 
-async function runSample(req:Request) { 
+    Logger.logMessage(
+      MessageType.INFORMATION,
+      "Request data ---- >" + JSON.stringify(req.body)
+    );
+  //   let data = req.body;
+  //   const deserializedData=
+  //   await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
+  // const eventGridEvent = deserializedData[0];
 
-     try{
-        var eventGridEvents:EventGridEvent<>[]=req.body.eventGridEvents;
-        var subscriptionValidationEventData:SubscriptionValidationEventData;
-        eventGridEvents.forEach(async (eventGridEvent) => {
-            {
-                Logger.logMessage(
-                    MessageType.INFORMATION,
-                    "Incoming Call event received " + JSON.stringify(eventGridEvent)
-                  );
-                  subscriptionValidationEventData=eventGridEvent.Data;
-                // Handle system events
-                if (eventGridEvent.isSystemEvent(eventGridEvent.eventType, eventGridEvent))
-                {
-                //     var requestDocument = new JsonDocument().Parse(eventGridEvent.Data.ToMemory());
-                // eventData = SystemEventExtensions.AsSystemEventData(EventType, requestDocument.RootElement);
-                // return eventData != null;
-                    // Handle the subscription validation event.
-                    if (eventGridEvent.eventType  == "Microsoft.EventGrid.SubscriptionValidationEvent")
-                    {
-                        var responseData ={
-                            validationResponse : subscriptionValidationEventData.validationCode
-                        };
-                        return responseData;
-                    }
-                }
-                // var jsonObject = callAutomationEventParser.parse();
-                var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
-                var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
-                var callbackUri = baseUri + '/api/calls?callerId='+ callerId;
-        
-                var answerCallResult:AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
-            }
-        })
-     }catch(ex){
+    // const deserializedData:EventGridEvent<>[] =await new EventGridDeserializer().deserializeEventGridEvents(data[0]);
+    // const eventGridEvent = deserializedData[0];
+    // const eventGridEvents:EventGridEvent<SubscriptionValidationEventData>[]=req.body;
+    var eventGridEvent=(req.body)[0]
+    var eventData:BinaryData = eventGridEvent.getData();
+    Logger.logMessage(
+      MessageType.INFORMATION, "SubscriptionValidationEvent response --> \n" + eventData.toString());
+
+    // if (eventGridEvent.eventType == "Microsoft.EventGrid.SubscriptionValidationEvent")
+    // {
+    //     try {
+    //         var subscriptionValidationEvent:SubscriptionValidationEventData = Object(eventData).SubscriptionValidationEvent;
+    //         var responseData = new SubscriptionValidationResponse();
+    //         responseData.setValidationResponse(subscriptionValidationEvent.getValidationCode());
+
+    //         return new ResponseEntity<>(responseData, HttpStatus.OK);
+    //     } catch (Exception e){
+    //         e.printStackTrace();
+    //         return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
+
+    var subscriptionValidationEventData:SubscriptionValidationEventData;
+    // eventGridEvents.forEach(async (eventGridEvent) => {
         Logger.logMessage(
-            MessageType.ERROR,
-            "Failed to initiate the call Exception -- > " + ex.getMessage()
+            MessageType.INFORMATION,
+            "Incoming Call event received " + JSON.stringify(eventGridEvent)
           );
-     }                          
-
+            // subscriptionValidationEventData=eventGridEvent.data;
+              if (eventGridEvent.eventType  == "Microsoft.EventGrid.SubscriptionValidationEvent")
+              {
+                  var responseData ={
+                      validationResponse : eventGridEvent.data.validationCode
+                  };
+                  return res.status(200).json(responseData);
+              }
+          var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
+          var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
+          var callbackUri = baseUri + '/api/calls?callerId='+ callerId;
+  
+          var answerCallResult:AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
+          // return res.status(200).json(String(answerCallResult)); 
+    // })  
+    }catch(ex){
+            Logger.logMessage(
+                MessageType.ERROR,
+                "Failed to answer the call Exception -- > " + ex.getMessage()
+              );
+         }                        
   }
   
   //api to handle call back events
@@ -186,9 +211,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
                 // {
                 //     new PhoneNumberIdentifier(builder.Configuration["ParticipantToAdd"])
                 // });
-                var sourceCallerId:PhoneNumberIdentifier = {
-                    phoneNumber: configuration.ACSAlternatePhoneNumber,
-                  }
+               
                 var participantToAdd=configuration.ParticipantToAdd;
                 if(participantToAdd){
                  if (identifierKind == CommunicationIdentifierKind.PhoneIdentity) {
@@ -243,7 +266,7 @@ var program = function () {
       try {
         if (baseUri) {
         //   Logger.logMessage(MessageType.INFORMATION, "Server started at:" + url);
-          var task = new Promise((resolve) => runSample(req));
+          var task = new Promise((resolve) => runSample(req,res));
         } else {
           Logger.logMessage(MessageType.ERROR, "Failed to start Ngrok service");
         }
@@ -277,15 +300,3 @@ var program = function () {
     return router;
   };
   module.exports = program;
-
-var express = require("express"),
-  app = express(),
-  port = process.env.PORT || 8080;
-var bodyParser = require("body-parser");
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(program);
-
-app.listen(port, async () => {
-  console.log(`Listening on port ${port}`);
-});
