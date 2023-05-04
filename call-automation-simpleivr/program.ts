@@ -56,44 +56,39 @@ var client = new CallAutomationClient(configuration.ConnectionString);
 var sourceCallerId:PhoneNumberIdentifier = {
   phoneNumber: configuration.ACSAlternatePhoneNumber,
 }
-async function runSample(req:Request,res:Response) { 
-    try {
-
+async function runSample(req: Request, res: Response) {
+  try {
     Logger.logMessage(
       MessageType.INFORMATION,
       "Request data ---- >" + JSON.stringify(req.body)
     );
-    var eventGridEvent=(req.body)[0]
-    var subscriptionValidationEventData:SubscriptionValidationEventData;
+    var eventGridEvent = (req.body)[0]
+    var subscriptionValidationEventData: SubscriptionValidationEventData;
     // eventGridEvents.forEach(async (eventGridEvent) => {
-        Logger.logMessage(
-            MessageType.INFORMATION,
-            "Incoming Call event received " + JSON.stringify(eventGridEvent)
-          );
-            // subscriptionValidationEventData=eventGridEvent.data;
-              if (eventGridEvent.eventType  == "Microsoft.EventGrid.SubscriptionValidationEvent")
-              {
-                if(eventGridEvent.data.validationCode){
-                  var responseData ={
-                      validationResponse : eventGridEvent.data.validationCode
-                  };
-                  return res.status(200).json(responseData);
-                }
-              }
-          var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
-          var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
-          var callbackUri = baseUri + '/api/calls?callerId='+ callerId;
-  
-          var answerCallResult:AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
-          // return res.status(200).json(String(answerCallResult)); 
+    Logger.logMessage(
+      MessageType.INFORMATION,
+      "Incoming Call event received " + JSON.stringify(eventGridEvent)
+    );
+    // subscriptionValidationEventData=eventGridEvent.data;
+    if (eventGridEvent.eventType == "Microsoft.EventGrid.SubscriptionValidationEvent") {
+      if (eventGridEvent.data.validationCode) {
+        let responseData = { validationResponse: eventGridEvent.data.validationCode };
+        return res.json(responseData);
+      }
+    }
+    var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
+    var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
+    var callbackUri = baseUri + '/api/calls?callerId=' + callerId;
+    var answerCallResult: AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
+    // return res.status(200).json(String(answerCallResult)); 
     // })  
-    }catch(ex){
-            Logger.logMessage(
-                MessageType.ERROR,
-                "Failed to answer the call Exception -- > " + ex.getMessage()
-              );
-         }                        
+  } catch (ex) {
+    Logger.logMessage(
+      MessageType.ERROR,
+      "Failed to answer the call Exception -- > " + ex.getMessage()
+    );
   }
+}
   
   //api to handle call back events
 async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
@@ -241,15 +236,17 @@ var program = function () {
       try {
         if (baseUri) {
         //   Logger.logMessage(MessageType.INFORMATION, "Server started at:" + url);
-          var task = new Promise((resolve) => runSample(req,res));
+          var task = await new Promise((resolve) => runSample(req,res));
+          return task;
         } else {
           Logger.logMessage(MessageType.ERROR, "Failed to start Ngrok service");
         }
-      } catch (ex) {
-        Logger.logMessage(MessageType.ERROR,ex.message);
+      } catch (e) {
+        let statusCode = e.statusCode || e.status || "500";
+        let name = e.message || e.name || "Some error occurred";
+        Logger.logMessage(MessageType.ERROR, e.message);
+        return res.status(statusCode).json(String(name));
       }
-      Logger.logMessage(MessageType.INFORMATION,"Press 'Ctrl + C' to exit the sample");
-      res.status(200).send("OK");
     });
   
     router.route("/api/calls/{contextId}").post(function (req: Request, res: Response) {
