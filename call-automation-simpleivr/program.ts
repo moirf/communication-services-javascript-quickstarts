@@ -1,31 +1,22 @@
-// import { CommunicationIdentityClient } from "@azure/communication-identity";
 import {
-  CommunicationIdentifier,
   CommunicationUserIdentifier,
   PhoneNumberIdentifier,
 } from "@azure/communication-common";
 import { MessageType, Logger } from "./Logger";
-// import { CallConfiguration } from "./CallConfiguration";
 import {
   CallAutomationClient,
-  CreateCallOptions,
-  CreateCallResult,
   CallAutomationEventParser,
   CallAutomationEvent,
   CallMediaRecognizeDtmfOptions,
   DtmfTone,
   RecognizeInputType,
-  RecognizeCompleted,
   FileSource,
   CallInvite,
-  CallConnectionProperties,
   AnswerCallResult,
   PlayOptions
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
-import {EventGridEvent,KnownSystemEventTypes,SubscriptionValidationEventData,SystemEventNameToEventData,CloudEvent, EventGridDeserializer, CommunicationIdentifierModel} from "@azure/eventgrid";
-import { promises } from "dns";
-import { ClientRequest } from "http";
+import {SubscriptionValidationEventData,CloudEvent} from "@azure/eventgrid";
 
 var configuration = require("./config");
 var express = require("express");
@@ -38,10 +29,6 @@ var playSource: FileSource = { uri: "" };
 var callAutomationEventParser:CallAutomationEventParser;
 var callInvite:CallInvite;
 var baseUri = configuration.BaseUri;
-// if (typeof baseUri!='undefined')
-// {
-//     baseUri = configuration.BaseUri;
-// }
 var userIdentityRegex = new RegExp(
     "8:acs:[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}_[0-9a-fA-F]{8}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{4}\\-[0-9a-fA-F]{12}"
   );
@@ -79,20 +66,21 @@ async function runSample(req: Request, res: Response) {
     var callerId = (eventGridEvent.data["from"]["rawId"]).toString();
     var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
     var callbackUri = baseUri + '/api/calls?callerId=' + callerId;
-    var answerCallResult: AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
+    var answerCallResult:AnswerCallResult = await client.answerCall(incomingCallContext, callbackUri);
     // return res.status(200).json(String(answerCallResult)); 
     // })  
   } catch (ex) {
     Logger.logMessage(
       MessageType.ERROR,
-      "Failed to answer the call Exception -- > " + ex.getMessage()
+      "Failed to answer the call Exception -- > " + ex.message
     );
   }
 }
   
   //api to handle call back events
-async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
-
+async function callbacks(cloudEvents:CloudEvent<CallAutomationEvent>[]) {
+// async function callbacks(req:Request) {
+  // var cloudEvents: CloudEvent<CallAutomationEvent>[]=req.body;
     var audioPlayOptions:PlayOptions ={loop :false , operationContext :"SimpleIVR"};
     try{
     cloudEvents.forEach(async (cloudEvent) => {
@@ -249,9 +237,10 @@ var program = function () {
       }
     });
   
-    router.route("/api/calls/{contextId}").post(function (req: Request, res: Response) {
+    router.route("/api/calls?callerId={contextId}").post(function (req: Request, res: Response) {
       console.log("req.body \n" + req.body);
       callbacks(req.body);
+      // callbacks(req);
       res.status(200).send("OK");
     });
   
