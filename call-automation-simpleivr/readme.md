@@ -1,7 +1,7 @@
 ---
 page_type: sample
 languages:
-- csharp
+- javascript
 products:
 - azure
 - azure-communication-services
@@ -10,7 +10,7 @@ products:
 
 # Call Automation - Simple IVR Solution
 
-The purpose of this sample application is to demonstrate the usage of the Azure Communication Services - Call Automation SDK for building solutions related to Interactive Voice Response (IVR). The application accepts an incoming call when an callee dialed in to either ACS Communication Identifier or ACS acquired phone number. Application prompt the Dual-Tone Multi-Frequency (DTMF) tones to select, and then plays the appropriate audio file based on the key pressed by the callee. The application has been configured to accept tone-1 through tone-5, and if any other key is pressed, the callee will hear an invalid tone and the call will be disconnected. This sample has been developed as an app service application using .NET7.
+The purpose of this sample application is to demonstrate the usage of the Azure Communication Services - Call Automation SDK for building solutions related to Interactive Voice Response (IVR). The application accepts an incoming call when an callee dialed in to either ACS Communication Identifier or ACS acquired phone number. Application prompt the Dual-Tone Multi-Frequency (DTMF) tones to select, and then plays the appropriate audio file based on the key pressed by the callee. The application has been configured to accept tone-1 through tone-5, and if any other key is pressed, the callee will hear an invalid tone and the call will be disconnected.The application is a console based application build using Node.js.
 
 # Design
 
@@ -19,44 +19,58 @@ The purpose of this sample application is to demonstrate the usage of the Azure 
 ## Prerequisites
 
 - Create an Azure account with an active subscription. For details, see [Create an account for free](https://azure.microsoft.com/free/)
-- [Visual Studio (2022 and above)](https://visualstudio.microsoft.com/vs/)
-- [.NET7](https://dotnet.microsoft.com/en-us/download/dotnet/7.0) (Make sure to install version that corresponds with your visual studio instance, 32 vs 64 bit)
+- [Visual Studio code](https://code.visualstudio.com/)
+- [Node.js](https://nodejs.org/en/) 14.17.3 and above
+- Install the [Typescript Compiler](https://code.visualstudio.com/Docs/languages/typescript#_installing-the-typescript-compiler)
 - Create an Azure Communication Services resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). You'll need to record your resource **connection string** for this sample.
-- Enable Visual studio dev tunneling for local development. For details, see   [Enable dev tunnel] (https://learn.microsoft.com/en-us/connectors/custom-connectors/port-tunneling)
-	
-	- To enable dev tunneling, Click `Tools` -> `Options` in Visual Studio 2022.  In the search bar type tunnel, Click the checkbox under `Environment` -> `Preview Features` called `Enable dev tunnels for Web Application`
-	![EnableDevTunnel](./data/EnableDevTunnel.png) 
-	- Create `Dev Tunnels`, for more details about [Dev Tunnels.](https://learn.microsoft.com/en-us/aspnet/core/test/dev-tunnels?view=aspnetcore-7.0)  
-	![ViewDevTunnels](./data//ViewDevTunnel.png)   
-	![CreateDevTunnels](./data//CreateDevTunnel.png) 
+- Get a phone number for your new Azure Communication Services resource. For details, see [Get a phone number](https://docs.microsoft.com/azure/communication-services/quickstarts/telephony-sms/get-phone-number?pivots=platform-azp)
+- Download and install [Ngrok](https://www.ngrok.com/download). As the sample is run locally, Ngrok will enable the receiving of all the events.
+- Generate Ngrok Url by using below steps
+	- Open command prompt or powershell window on the machine using to run the sample.
+	- Navigate to directory path where Ngrok.exe file is located. Then, run:
+		- ngrok http {portNumber} (For e.g. ngrok http 8080)
+	- Get Ngrok Url generated. Ngrok Url will be in the form of e.g.  "https://95b6-43-230-212-228.ngrok-free.app"
+
+
+### Prerequisite check
+- In a terminal or command window, run `node --version` to check that Node.js is installed.
 
 
 ## Before running the sample for the first time
 
-1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you'd like to clone the sample to.
-2. git clone https://github.com/Azure-Samples/Communication-Services-dotnet-quickstarts.git.
+1. Open an instance of PowerShell, Windows Terminal, Command Prompt or equivalent and navigate to the directory that you would like to clone the sample to.
+2. git clone `https://github.com/moirf/communication-services-javascript-quickstarts`.
+3. Navigate to `call-automation-simpleivr` folder.
 
-### Locally running the Call Automation Simple IVR app
-1. Go to CallAutomation_SimpleIvr folder and open `CallAutomation_SimpleIvr.sln` solution in Visual Studio.
-2. Visual studio dev tunnel url - Run the solution once and check for dev tunnels being created, select to continue on security prompt.
+### Configuring application
 
-### Publish the Call Automation Simple IVR to Azure WebApp
+- Open the config.js file to configure the following settings
 
-1. Right click the `CallAutomation_SimpleIvr` project and select Publish.
-2. Create a new publish profile and select your app name, Azure subscription, resource group etc. (choose any unique name, as this URL needed for `BaseUri` configuration settings)
-3. After publishing, add the following configurations on azure portal (under app service's configuration section).
+	- ConnectionString: Azure Communication Service resource's connection string.
+	- ACSAlternatePhoneNumber: Phone number associated with the Azure Communication Service resource.For e.g. "+1425XXXAAAA"
+	- ParticipantToAdd: Target phone number or communication user identifier to add in the call. For e.g. "+1425XXXAAAA" or "8:acs:e333a5b5-c1e4-4984-b752-447bf92d10b7_00000018-5d49-93c5-f883-084822004dc5" (Communication user identifier can be generated from the url :https://acs-sample-app.azurewebsites.net/)
+	- BaseUri: Base url of the app. (For local devlopment replace the Ngrok url.For e.g. "https://95b6-43-230-212-228.ngrok-free.app")
 
-    - ConnectionString: Azure Communication Service resource's connection string.
-	- ACSAlternatePhoneNumber: Azure Communication Service acquired phone number.
-	- BaseUri: Url of the deployed app service.
-	- ParticipantToAdd: Target phone number to add as participant.
+### Run the Application
+
+- Navigate to the directory containing the package.json file and use the following commands for installing all the dependencies:
+	- npm install
+- To run the sample, first run:
+	- tsc .\server.ts
+- This will generate server.js file, then run:
+	- node .\server.js or npm run start
+- Create webhook
+- Start call using [Test App](https://acs-sample-app.azurewebsites.net/) 
+	- Login to site using Resource connection string and test display name (For e.g. TestName) on Enter credentials page
+	- Click on Start Call button and provide ACS CommunicationUserIdentifier on pop up window .
+	- Click on Start button to initiate call.
 	
 ### Create Webhook for Microsoft.Communication.IncomingCall event
 IncomingCall is an Azure Event Grid event for notifying incoming calls to your Communication Services resource. To learn more about it, see [this guide](https://learn.microsoft.com/en-us/azure/communication-services/concepts/call-automation/incoming-call-notification). 
 1. Navigate to your resource on Azure portal and select `Events` from the left side menu.
 1. Select `+ Event Subscription` to create a new subscription. 
 1. Filter for Incoming Call event. 
-1. Choose endpoint type as web hook and provide the public url generated for your application by Dev Tunnels. Make sure to provide the exact api route that you programmed to receive the event previously. In this case, it would be <dev_tunnel_url>/api/incomingCall.  
+1. Choose endpoint type as web hook and provide the Ngrok url generated. Make sure to provide the exact api route that you programmed to receive the event previously. In this case, it would be <ngrok_url>/api/incomingCall.  
 
 	![Event Grid Subscription for Incoming Call](./data/EventgridSubscription-IncomingCall.png)
 
@@ -71,8 +85,3 @@ This subscription currently has no filters and hence all incoming calls will be 
 
 **Note**: While you may use http://localhost for local testing, the sample when deployed will only work when served over https. The SDK [does not support http](https://docs.microsoft.com/azure/communication-services/concepts/voice-video-calling/calling-sdk-features#user-webrtc-over-https).
 
-### Troubleshooting
-
-1. Solution doesn't build, it throws errors during build
-
-	Clean/rebuild the C# solution
