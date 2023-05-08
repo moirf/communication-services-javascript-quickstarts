@@ -16,7 +16,7 @@ import {
   PlayOptions,
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
-import { SubscriptionValidationEventData, CloudEvent } from "@azure/eventgrid";
+import { SubscriptionValidationEventData, CloudEvent, EventGridEvent } from "@azure/eventgrid";
 
 var configuration = require("./config");
 var express = require("express");
@@ -24,7 +24,6 @@ var router = express.Router();
 var fileSystem = require("fs");
 var path = require("path");
 
-var url = "http://localhost:8080";
 var playSource: FileSource = { uri: "" };
 var callAutomationEventParser: CallAutomationEventParser;
 var callInvite: CallInvite;
@@ -45,20 +44,10 @@ var sourceCallerId: PhoneNumberIdentifier = {
 };
 async function runSample(req: Request, res: Response) {
   try {
-    Logger.logMessage(
-      MessageType.INFORMATION,
-      "Request data ---- >" + JSON.stringify(req.body)
-    );
+    Logger.logMessage(MessageType.INFORMATION,"Request data ---- >" + JSON.stringify(req.body));
     var eventGridEvent = req.body[0];
-    var subscriptionValidationEventData: SubscriptionValidationEventData;
-    Logger.logMessage(
-      MessageType.INFORMATION,
-      "Incoming Call event received " + JSON.stringify(eventGridEvent)
-    );
-    if (
-      eventGridEvent.eventType ==
-      "Microsoft.EventGrid.SubscriptionValidationEvent"
-    ) {
+    Logger.logMessage(MessageType.INFORMATION,"Incoming Call event received " + JSON.stringify(eventGridEvent));
+    if (eventGridEvent.eventType =="Microsoft.EventGrid.SubscriptionValidationEvent") {
       if (eventGridEvent.data.validationCode) {
         let responseData = {
           validationResponse: eventGridEvent.data.validationCode,
@@ -67,18 +56,11 @@ async function runSample(req: Request, res: Response) {
       }
     }
     var callerId = eventGridEvent.data["from"]["rawId"].toString();
-    var incomingCallContext =
-      eventGridEvent.data["incomingCallContext"].toString();
+    var incomingCallContext = eventGridEvent.data["incomingCallContext"].toString();
     var callbackUri = baseUri + "/api/calls?callerId=" + callerId;
-    var answerCallResult: AnswerCallResult = await client.answerCall(
-      incomingCallContext,
-      callbackUri
-    );
+    var answerCallResult: AnswerCallResult = await client.answerCall(incomingCallContext,callbackUri);
   } catch (ex) {
-    Logger.logMessage(
-      MessageType.ERROR,
-      "Failed to answer the call Exception -- > " + ex.message
-    );
+    Logger.logMessage(MessageType.ERROR,"Failed to answer the call Exception -- > " + ex.message);
   }
 }
 
@@ -90,27 +72,15 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
   };
   try {
     cloudEvents.forEach(async (cloudEvent) => {
-      var eventType = await callAutomationEventParser.parse(
-        JSON.stringify(cloudEvent)
-      );
-      Logger.logMessage(
-        MessageType.INFORMATION,
-        "Event received: " + JSON.stringify(eventType)
-      );
+      var eventType = await callAutomationEventParser.parse(JSON.stringify(cloudEvent));
+      Logger.logMessage(MessageType.INFORMATION,"Event received: " + JSON.stringify(eventType));
       if (eventType?.callConnectionId) {
-        var callConnection = client.getCallConnection(
-          eventType.callConnectionId
-        );
+        var callConnection = client.getCallConnection(eventType.callConnectionId);
         var callMedia = callConnection?.getCallMedia();
         if (eventType.kind == "CallConnected") {
           // Start recognize prompt - play audio and recognize 1-digit DTMF input
-          Logger.logMessage(
-            MessageType.INFORMATION,
-            "CallConnected event received for call connection id: " +
-              eventType.callConnectionId
-          );
-          playSource.uri =
-            configuration.AppBaseUri + configuration.MainMenuAudio;
+          Logger.logMessage(MessageType.INFORMATION,"CallConnected event received for call connection id: " +eventType.callConnectionId);
+          playSource.uri = configuration.AppBaseUri + configuration.MainMenuAudio;
           playSource.playSourceId = "AppointmentReminderMenu";
           var recognizeOptions: CallMediaRecognizeDtmfOptions = {
             interruptPrompt: true,
@@ -126,10 +96,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
           //Start recognition
           await callMedia.startRecognizing(recognizeOptions);
         }
-        if (
-          eventType.kind == "RecognizeCompleted" &&
-          eventType.operationContext == "MainMenu"
-        ) {
+        if (eventType.kind == "RecognizeCompleted" && eventType.operationContext == "MainMenu") {
           var recognizeCompleted = eventType;
           var toneDetected = recognizeCompleted.collectTonesResult.tones[0];
           if (toneDetected == DtmfTone.One) {
@@ -158,10 +125,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
             await callMedia.playToAll(invalidAudio, audioPlayOptions);
           }
         }
-        if (
-          eventType.kind == "RecognizeFailed" &&
-          eventType.operationContext == "MainMenu"
-        ) {
+        if (eventType.kind == "RecognizeFailed" && eventType.operationContext == "MainMenu") {
           playSource.uri = baseUri + configuration.InvalidAudio;
           // play invalid audio
           await callMedia.playToAll(playSource, audioPlayOptions);
@@ -184,18 +148,9 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
                 callInvite = new CallInvite(communicationUser);
               }
 
-              Logger.logMessage(
-                MessageType.INFORMATION,
-                "Performing add Participant operation"
-              );
-              var addParticipantResponse = await callConnection.addParticipant(
-                callInvite
-              );
-              Logger.logMessage(
-                MessageType.INFORMATION,
-                "Call initiated with Call Leg id -- >" +
-                  addParticipantResponse.participant
-              );
+              Logger.logMessage(MessageType.INFORMATION,"Performing add Participant operation");
+              var addParticipantResponse = await callConnection.addParticipant(callInvite);
+              Logger.logMessage(MessageType.INFORMATION,"Call initiated with Call Leg id -- >" +addParticipantResponse.participant);
             }
           }
           if (eventType.operationContext == "SimpleIVR") {
@@ -203,10 +158,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
           }
         }
         if (eventType.kind == "PlayFailed") {
-          Logger.logMessage(
-            MessageType.INFORMATION,
-            "PlayFailed Event: " + JSON.stringify(eventType)
-          );
+          Logger.logMessage(MessageType.INFORMATION,"PlayFailed Event: " + JSON.stringify(eventType));
           await callConnection.hangUp(true);
         }
       }
@@ -225,9 +177,7 @@ function getIdentifierKind(participantnumber: string) {
 
 var program = function () {
   // Api to initiate call
-  router
-    .route("/api/incomingCall")
-    .post(async function (req: Request, res: Response) {
+  router.route("/api/incomingCall").post(async function (req: Request, res: Response) {
       Logger.logMessage(MessageType.INFORMATION, "Starting ACS Sample App");
       try {
         if (baseUri) {
@@ -244,13 +194,11 @@ var program = function () {
       }
     });
 
-  router
-    .route("/api/calls?callerId={contextId}")
-    .post(function (req: Request, res: Response) {
-      console.log("req.body \n" + req.body);
-      callbacks(req.body);
-      res.status(200).send("OK");
-    });
+  router.route("/api/calls?callerId={contextId}").post(function (req: Request, res: Response) {
+    console.log("req.body \n" + req.body);
+    callbacks(req.body);
+    res.status(200).send("OK");
+  });
 
   router.route("/audio").get(function (req: Request, res: Response) {
     var fileName = "/audio/" + req.query.filename;
