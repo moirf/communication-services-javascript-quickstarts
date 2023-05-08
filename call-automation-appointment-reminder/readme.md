@@ -13,6 +13,7 @@ This sample application is also capable of making multiple concurrent outbound c
 ## Prerequisites
 
 - Create an Azure account with an active subscription. For details, see [Create an account for free](https://azure.microsoft.com/free/)
+- [Visual Studio code](https://code.visualstudio.com/)
 - [Node.js](https://nodejs.org/en/) 14.17.3 and above
 - Install the [Typescript Compiler](https://code.visualstudio.com/Docs/languages/typescript#_installing-the-typescript-compiler)
 - Create an Azure Communication Services resource. For details, see [Create an Azure Communication Resource](https://docs.microsoft.com/azure/communication-services/quickstarts/create-communication-resource). You'll need to record your resource **connection string** for this sample.
