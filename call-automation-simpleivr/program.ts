@@ -16,7 +16,7 @@ import {
     PlayOptions,
 } from "@azure/communication-call-automation";
 import { Request, Response } from "express";
-import { SubscriptionValidationEventData, CloudEvent, EventGridEvent } from "@azure/eventgrid";
+import { CloudEvent } from "@azure/eventgrid";
 
 var configuration = require("./config");
 var express = require("express");
@@ -42,18 +42,16 @@ var client = new CallAutomationClient(configuration.ConnectionString);
 var sourceCallerId: PhoneNumberIdentifier = {
     phoneNumber: configuration.ACSAlternatePhoneNumber,
 };
+
 async function runSample(req: Request, res: Response) {
     try {
         Logger.logMessage(MessageType.INFORMATION, "Request data ---- >" + JSON.stringify(req.body));
         var eventGridEvents = req.body;
-        // var eventGridEvents:EventGridEvent
         for (var eventGridEvent of eventGridEvents) {
             Logger.logMessage(MessageType.INFORMATION, "Incoming Call event received " + JSON.stringify(eventGridEvent));
             if (eventGridEvent.eventType == "Microsoft.EventGrid.SubscriptionValidationEvent") {
                 if (eventGridEvent.data.validationCode) {
-                    let responseData = {
-                        validationResponse: eventGridEvent.data.validationCode,
-                    };
+                    let responseData = { validationResponse: eventGridEvent.data.validationCode };
                     return res.json(responseData);
                 }
             }
@@ -67,7 +65,7 @@ async function runSample(req: Request, res: Response) {
     }
 }
 
-//api to handle call back events
+//api to handle the call back events
 async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
     var audioPlayOptions: PlayOptions = {
         loop: false,
@@ -77,9 +75,9 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
         cloudEvents.forEach(async (cloudEvent) => {
             var eventType = await callAutomationEventParser.parse(JSON.stringify(cloudEvent));
             Logger.logMessage(MessageType.INFORMATION, "Event received: " + JSON.stringify(eventType));
-            if (eventType ?.callConnectionId) {
+            if (eventType?.callConnectionId) {
                 var callConnection = client.getCallConnection(eventType.callConnectionId);
-                var callMedia = callConnection ?.getCallMedia();
+                var callMedia = callConnection?.getCallMedia();
                 if (eventType.kind == "CallConnected") {
                     // Start recognize prompt - play audio and recognize 1-digit DTMF input
                     Logger.logMessage(MessageType.INFORMATION, "CallConnected event received for call connection id: " + eventType.callConnectionId);
@@ -169,18 +167,16 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
     } catch (ex) { }
 }
 
-function getIdentifierKind(participantnumber: string) {
+function getIdentifierKind(participantNumber: string) {
     // checks the identity type returns as string
-    return userIdentityRegex.test(participantnumber)
-        ? CommunicationIdentifierKind.UserIdentity
-        : phoneIdentityRegex.test(participantnumber)
-            ? CommunicationIdentifierKind.PhoneIdentity
-            : CommunicationIdentifierKind.UnknownIdentity;
+    return userIdentityRegex.test(participantNumber) ?
+        CommunicationIdentifierKind.UserIdentity : phoneIdentityRegex.test(participantNumber) ?
+            CommunicationIdentifierKind.PhoneIdentity : CommunicationIdentifierKind.UnknownIdentity;
 }
 
-var program = function() {
+var program = function () {
     // Api to initiate call
-    router.route("/api/incomingCall").post(async function(req: Request, res: Response) {
+    router.route("/api/incomingCall").post(async function (req: Request, res: Response) {
         Logger.logMessage(MessageType.INFORMATION, "Starting ACS Sample App");
         try {
             if (baseUri) {
@@ -197,13 +193,13 @@ var program = function() {
         }
     });
 
-    router.route("/api/calls?callerId={contextId}").post(function(req: Request, res: Response) {
+    router.route("/api/calls?callerId={contextId}").post(function (req: Request, res: Response) {
         console.log("req.body \n" + req.body);
         callbacks(req.body);
         res.status(200).send("OK");
     });
 
-    router.route("/audio").get(function(req: Request, res: Response) {
+    router.route("/audio").get(function (req: Request, res: Response) {
         var fileName = "/audio/" + req.query.filename;
         var filePath = path.join(__dirname, fileName);
         var stat = fileSystem.statSync(filePath);
