@@ -40,7 +40,6 @@ enum CommunicationIdentifierKind {
 }
 
 var targets: { [callConnection: string]: CommunicationUserIdentifier | PhoneNumberIdentifier; } = {};
-let playSource: FileSource = { uri: "" };
 var callAutomationClient: CallAutomationClient = new CallAutomationClient(configuration.ConnectionString);
 var identifierKind;
 var targetParticipant: CommunicationUserIdentifier | PhoneNumberIdentifier;
@@ -93,7 +92,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
         Logger.logMessage(MessageType.INFORMATION, "Event received: " + JSON.stringify(cloudEvent));
 
         var eventType = await callAutomationEventParser.parse(JSON.stringify(cloudEvent));
-
+        var playSource: FileSource = { uri: "" };
         if (eventType?.callConnectionId) {
             var callConnection = callAutomationClient.getCallConnection(eventType.callConnectionId);
             var callConnectionMedia = callConnection.getCallMedia();
@@ -159,7 +158,7 @@ async function callbacks(cloudEvents: CloudEvent<CallAutomationEvent>[]) {
 }
 
 function getAudioForTone(toneDetected: DtmfTone) {
-
+    var playSource: FileSource = { uri: "" };
     if (toneDetected == DtmfTone.One) {
         playSource.uri = configuration.AppBaseUri + configuration.AppointmentConfirmedAudio;
     }
